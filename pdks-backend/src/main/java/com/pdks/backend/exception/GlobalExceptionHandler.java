@@ -36,6 +36,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
+    /**
+     * 400 INVALID_QR — yalnızca bu exception için özel format
+     */
+    @ExceptionHandler(InvalidQrException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidQr(InvalidQrException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("errorCode", "INVALID_QR");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     // ─── ResponseStatusException (401, 409, 404 vb.) ─────────────────────────
 
     /**

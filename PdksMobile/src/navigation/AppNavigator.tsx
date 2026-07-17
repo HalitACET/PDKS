@@ -7,6 +7,10 @@ import LoginScreen from '../screens/LoginScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
 import DeviceMismatchScreen from '../screens/DeviceMismatchScreen';
+import QrScanScreen from '../screens/QrScanScreen';
+import GpsTransactionScreen from '../screens/GpsTransactionScreen';
+import ConfirmTransactionScreen from '../screens/ConfirmTransactionScreen';
+import TransactionSuccessScreen from '../screens/TransactionSuccessScreen';
 
 // ─── Tip Tanımları ────────────────────────────────────────────────────────────
 
@@ -15,6 +19,19 @@ export type RootStackParamList = {
   ChangePassword: {token: string};
   Home: {fullName?: string; token?: string} | undefined;
   DeviceMismatch: undefined;
+  QrScan: undefined;
+  GpsTransaction: undefined;
+  ConfirmTransaction: {
+    qrContent: string | null;
+    latitude: number;
+    longitude: number;
+    method: 'QR' | 'GPS';
+  };
+  TransactionSuccess: {
+    type: 'GIRIS' | 'CIKIS';
+    timestamp: string;
+    locationName: string | null;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -64,6 +81,10 @@ export default function AppNavigator() {
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="DeviceMismatch" component={DeviceMismatchScreen} />
+        <Stack.Screen name="QrScan" component={QrScanScreen} />
+        <Stack.Screen name="GpsTransaction" component={GpsTransactionScreen} />
+        <Stack.Screen name="ConfirmTransaction" component={ConfirmTransactionScreen} />
+        <Stack.Screen name="TransactionSuccess" component={TransactionSuccessScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
