@@ -1,13 +1,25 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
-import {removeToken} from '../services/auth';
+import {removeToken, getFullName} from '../services/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({navigation, route}: Props) {
-  const {fullName} = route.params;
+  const [fullName, setFullName] = useState<string>(route.params?.fullName || '');
+
+  useEffect(() => {
+    if (!fullName) {
+      getFullName().then(name => {
+        if (name) {
+          setFullName(name);
+        } else {
+          setFullName('Personel');
+        }
+      });
+    }
+  }, [fullName]);
 
   const handleLogout = async () => {
     await removeToken();

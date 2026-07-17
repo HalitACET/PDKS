@@ -16,27 +16,39 @@ export interface LoginResponse {
   fullName: string;
   role: string;
   mustChangePassword: boolean;
+  deviceRegistered: boolean;
 }
 
 /**
  * POST /auth/login
- * firmId + username + password ile giriş yapar.
- * Başarısızsa backend 401 + {message} döner — axios bunu throw eder.
+ * firmId + username + password + deviceId ile giriş yapar.
+ * 403 DEVICE_MISMATCH durumunda özel hata fırlatır.
  */
 export async function login(
   firmId: string,
   username: string,
   password: string,
+  deviceId: string,
 ): Promise<LoginResponse> {
   try {
     const response = await api.post<LoginResponse>('/auth/login', {
       firmId,
       username,
       password,
+      deviceId,
     });
     return response.data;
   } catch (error: any) {
-    // Backend'den gelen hata mesajını yakala, yoksa genel mesaj
+    // 403 DEVICE_MISMATCH → özel hata tipi
+    if (error.response?.status === 403) {
+      const deviceError = new Error(
+        error.response?.data?.message ??
+          'Bu hesap başka bir cihaza kayıtlıdır.',
+      ) as any;
+      deviceError.isDeviceMismatch = true;
+      throw deviceError;
+    }
+    // Diğer hatalar
     const message =
       error.response?.data?.message ?? 'Sunucuya bağlanılamadı.';
     throw new Error(message);

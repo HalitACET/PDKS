@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Uygulama ayağa kalkarken çalışır.
- * users tablosu boşsa test kullanıcısını ekler.
- * Geliştirme kolaylığı için — production'da kaldırılmalı veya devre dışı bırakılmalı.
+ * Geliştirme kolaylığı için test kullanıcıları oluşturur.
+ * Production'da kaldırılmalı veya devre dışı bırakılmalı.
  */
 @Component
 @RequiredArgsConstructor
@@ -24,22 +24,41 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Tabloda hiç kayıt yoksa seed et
-        if (userRepository.count() == 0) {
-            User testUser = User.builder()
+        seedEmployee();
+        seedAdmin();
+    }
+
+    /** EMPLOYEE test kullanıcısı — yoksa oluştur */
+    private void seedEmployee() {
+        if (userRepository.findByUsernameAndFirmId("mehmet.yilmaz", "ATLAS01").isEmpty()) {
+            User employee = User.builder()
                     .firmId("ATLAS01")
                     .username("mehmet.yilmaz")
-                    .password(passwordEncoder.encode("Ilk12345")) // BCrypt hash
+                    .password(passwordEncoder.encode("Ilk12345"))
                     .fullName("Mehmet Yılmaz")
                     .role(Role.EMPLOYEE)
                     .mustChangePassword(true)
                     .active(true)
                     .build();
+            userRepository.save(employee);
+            log.info("EMPLOYEE seed: firmId=ATLAS01, username=mehmet.yilmaz");
+        }
+    }
 
-            userRepository.save(testUser);
-            log.info("Test kullanıcısı oluşturuldu: firmId=ATLAS01, username=mehmet.yilmaz");
-        } else {
-            log.info("Veritabanında kayıt mevcut, seed atlandı.");
+    /** ADMIN test kullanıcısı — yoksa oluştur */
+    private void seedAdmin() {
+        if (userRepository.findByUsernameAndFirmId("admin", "ATLAS01").isEmpty()) {
+            User admin = User.builder()
+                    .firmId("ATLAS01")
+                    .username("admin")
+                    .password(passwordEncoder.encode("Admin1234"))
+                    .fullName("PDKS Admin")
+                    .role(Role.ADMIN)
+                    .mustChangePassword(false)
+                    .active(true)
+                    .build();
+            userRepository.save(admin);
+            log.info("ADMIN seed: firmId=ATLAS01, username=admin");
         }
     }
 }

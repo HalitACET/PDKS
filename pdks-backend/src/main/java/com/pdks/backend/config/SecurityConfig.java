@@ -4,6 +4,7 @@ import com.pdks.backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,10 +21,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *  - WebSecurityConfigurerAdapter KULLANILMAZ (Spring 6'da kaldırıldı)
  *  - SecurityFilterChain bean + lambda DSL
  *  - Oturum yönetimi STATELESS — JWT tabanlı sistem
- *  - /health ve /auth/login herkese açık; diğerleri JWT gerektirir
+ *  - /admin/** yolları sadece ADMIN rolüne açık
+ *  - @PreAuthorize için @EnableMethodSecurity aktif
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -45,7 +48,9 @@ public class SecurityConfig {
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/error").permitAll()
-                // Diğer tüm istekler (change-password dahil) JWT gerektirir
+                // Admin yolları sadece ADMIN rolüne açık
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                // Diğer tüm istekler JWT gerektirir
                 .anyRequest().authenticated()
             )
 

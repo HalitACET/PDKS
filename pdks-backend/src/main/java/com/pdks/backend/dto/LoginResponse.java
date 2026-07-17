@@ -21,4 +21,10 @@ public class LoginResponse {
 
     /** true ise mobil uygulama kullanıcıyı şifre değiştirme ekranına yönlendirmeli */
     private boolean mustChangePassword;
+
+    /**
+     * false ise mobil uygulama /device/register çağırmalı.
+     * true ise cihaz zaten kayıtlı ve doğrulandı.
+     */
+    private boolean deviceRegistered;
 }

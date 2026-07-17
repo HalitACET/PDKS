@@ -6,7 +6,7 @@ import lombok.Setter;
 
 /**
  * Login isteği DTO'su.
- * Login her zaman firmId + username ikilisiyle yapılır.
+ * Login her zaman firmId + username + deviceId üçlüsüyle yapılır.
  */
 @Getter
 @Setter
@@ -20,4 +20,8 @@ public class LoginRequest {
 
     @NotBlank(message = "Şifre boş olamaz")
     private String password;
+
+    /** Cihaz bağlama kontrolü için mobil cihazın UUID'si */
+    @NotBlank(message = "Cihaz ID boş olamaz")
+    private String deviceId;
 }

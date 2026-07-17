@@ -6,13 +6,15 @@ import {getToken} from '../services/auth';
 import LoginScreen from '../screens/LoginScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
+import DeviceMismatchScreen from '../screens/DeviceMismatchScreen';
 
 // ─── Tip Tanımları ────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
   Login: undefined;
   ChangePassword: {token: string};
-  Home: {fullName: string; token: string};
+  Home: {fullName?: string; token?: string} | undefined;
+  DeviceMismatch: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -61,6 +63,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="DeviceMismatch" component={DeviceMismatchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

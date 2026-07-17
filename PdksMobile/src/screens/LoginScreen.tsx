@@ -8,11 +8,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {login} from '../services/api';
-import {saveToken} from '../services/auth';
+import {saveToken, saveFullName} from '../services/auth';
+import {
+  getOrCreateDeviceId,
+  getDeviceName,
+  registerDevice,
+} from '../services/device';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -34,25 +40,73 @@ export default function LoginScreen({navigation}: Props) {
     setIsLoading(true);
 
     try {
-      const response = await login(firmId.trim(), username.trim(), password);
+      // 1. Bu cihazın UUID'sini al (keychain'den veya DeviceInfo'dan)
+      const deviceId = await getOrCreateDeviceId();
 
-      // Token'ı güvenli depoya kaydet
+      // 2. Login isteği — backend'e deviceId de gönder
+      const response = await login(
+        firmId.trim(),
+        username.trim(),
+        password,
+        deviceId,
+      );
+
+      // 3. Token'ı ve kullanıcı adını güvenli depoya kaydet
       await saveToken(response.token);
+      await saveFullName(response.fullName);
 
-      if (response.mustChangePassword) {
-        // İlk giriş — şifre değiştirme zorunlu
-        navigation.replace('ChangePassword', {token: response.token});
+      // 4. Cihaz bağlama kontrolü
+      if (!response.deviceRegistered) {
+        // İlk kez bu cihazdan giriş — cihazı kaydet
+        try {
+          await registerDevice(response.token);
+
+          const deviceName = getDeviceName();
+          Alert.alert(
+            'Cihaz Kaydedildi',
+            `${deviceName} cihazınız hesabınıza güvenli şekilde eşleştirildi. Bundan sonra giriş işlemleri yalnızca bu cihazdan yapılabilir.`,
+            [
+              {
+                text: 'Tamam',
+                onPress: () => navigateAfterLogin(response),
+              },
+            ],
+          );
+          return; // Alert kapandıktan sonra navigateAfterLogin çalışacak
+        } catch {
+          // Cihaz kayıt hatası — yine de devam et (retry sonraki girişte)
+          navigateAfterLogin(response);
+        }
       } else {
-        // Normal giriş — ana ekrana git
-        navigation.replace('Home', {
-          fullName: response.fullName,
-          token: response.token,
-        });
+        // Cihaz zaten kayıtlı ve eşleşiyor — direkt devam
+        navigateAfterLogin(response);
       }
     } catch (error: any) {
+      // 403 DEVICE_MISMATCH → DeviceMismatch ekranına yönlendir
+      if (error.isDeviceMismatch) {
+        navigation.replace('DeviceMismatch');
+        return;
+      }
       setErrorMessage(error.message ?? 'Giriş yapılamadı.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const navigateAfterLogin = (response: {
+    mustChangePassword: boolean;
+    fullName: string;
+    token: string;
+  }) => {
+    if (response.mustChangePassword) {
+      // İlk giriş — şifre değiştirme zorunlu
+      navigation.replace('ChangePassword', {token: response.token});
+    } else {
+      // Normal giriş — ana ekrana git
+      navigation.replace('Home', {
+        fullName: response.fullName,
+        token: response.token,
+      });
     }
   };
 

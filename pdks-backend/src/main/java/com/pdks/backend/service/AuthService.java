@@ -3,7 +3,10 @@ package com.pdks.backend.service;
 import com.pdks.backend.dto.ChangePasswordRequest;
 import com.pdks.backend.dto.LoginRequest;
 import com.pdks.backend.dto.LoginResponse;
+import com.pdks.backend.entity.Device;
 import com.pdks.backend.entity.User;
+import com.pdks.backend.exception.DeviceMismatchException;
+import com.pdks.backend.repository.DeviceRepository;
 import com.pdks.backend.repository.UserRepository;
 import com.pdks.backend.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Optional;
 
 /**
  * Kimlik doğrulama iş mantığı.
@@ -21,21 +26,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final DeviceRepository deviceRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     // ─── Login ───────────────────────────────────────────────────────────────
 
     /**
-     * firmId + username ile kullanıcıyı bulur, BCrypt ile şifre doğrular.
-     * Başarısız durumda (kullanıcı yok / şifre hatalı / pasif hesap)
-     * hepsinde aynı 401 döner — güvenlik gereği hangi bilginin hatalı olduğu belli edilmez.
+     * firmId + username + deviceId ile giriş.
+     * Şifre doğrulandıktan SONRA, token üretilmeden ÖNCE cihaz kontrolü yapılır:
+     *
+     * 1. Kayıtlı cihaz YOK → login başarılı, deviceRegistered=false (mobil kayıt yapacak)
+     * 2. Kayıtlı cihaz VAR ve deviceId EŞLEŞİYOR → normal login, deviceRegistered=true
+     * 3. Kayıtlı cihaz VAR ama deviceId FARKLIYSA → 403 DEVICE_MISMATCH
      */
     public LoginResponse login(LoginRequest request) {
         // Kullanıcıyı firmId + username ikilisiyle ara
         User user = userRepository
                 .findByUsernameAndFirmId(request.getUsername(), request.getFirmId())
-                .orElseThrow(() -> unauthorized());
+                .orElseThrow(this::unauthorized);
 
         // Pasif kullanıcı — aynı hata mesajı, bilgi sızdırma önlenir
         if (!user.isActive()) {
@@ -47,6 +56,24 @@ public class AuthService {
             throw unauthorized();
         }
 
+        // ─── Cihaz Kontrolü (şifre doğrulandıktan sonra) ───────────────────
+        Optional<Device> registeredDevice = deviceRepository.findByUser(user);
+        boolean deviceRegistered;
+
+        if (registeredDevice.isEmpty()) {
+            // Durum 1: Henüz kayıtlı cihaz yok — mobil /device/register çağıracak
+            deviceRegistered = false;
+        } else {
+            Device device = registeredDevice.get();
+            if (device.getDeviceId().equals(request.getDeviceId())) {
+                // Durum 2: Cihaz eşleşiyor — normal login
+                deviceRegistered = true;
+            } else {
+                // Durum 3: Farklı cihaz — DEVICE_MISMATCH exception fırlat
+                throw new DeviceMismatchException();
+            }
+        }
+
         // JWT üret ve yanıtı oluştur
         String token = jwtService.generateToken(user);
 
@@ -55,6 +82,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .mustChangePassword(user.isMustChangePassword())
+                .deviceRegistered(deviceRegistered)
                 .build();
     }
 
