@@ -101,6 +101,14 @@ export interface TransactionLogRequest {
   method: 'QR' | 'GPS';
   deviceId: string;
   mockLocation: boolean;
+  clientId?: string;
+}
+
+export interface SyncResultResponse {
+  clientId: string;
+  status: 'SAVED' | 'REJECTED';
+  errorCode?: 'DEVICE_MISMATCH' | 'INVALID_QR' | 'LOCATION_SUSPICIOUS' | 'SYSTEM_ERROR';
+  transactionId?: number;
 }
 
 export interface TransactionLogResponse {
@@ -212,6 +220,27 @@ export async function getHistory(
     return response.data;
   } catch (error: any) {
     const message = error.response?.data?.message ?? 'Geçmiş listesi yüklenemedi.';
+    throw new Error(message);
+  }
+}
+
+/**
+ * POST /transaction/sync
+ * Çevrimdışı kayıtları topluca senkronize eder.
+ */
+export async function syncTransactions(
+  token: string,
+  body: TransactionLogRequest[],
+): Promise<SyncResultResponse[]> {
+  try {
+    const response = await api.post<SyncResultResponse[]>('/transaction/sync', body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    const message = error.response?.data?.message ?? 'Senkronizasyon başarısız.';
     throw new Error(message);
   }
 }

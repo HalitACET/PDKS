@@ -36,6 +36,7 @@ export type RootStackParamList = {
     type: 'GIRIS' | 'CIKIS';
     timestamp: string;
     locationName: string | null;
+    isOffline?: boolean;
   };
 };
 

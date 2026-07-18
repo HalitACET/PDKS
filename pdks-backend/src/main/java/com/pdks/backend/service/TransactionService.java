@@ -157,6 +157,128 @@ public class TransactionService {
                 .build());
     }
 
+    // ─── Toplu Senkronizasyon (Sync) ─────────────────────────────────────────
+
+    public java.util.List<SyncResultResponse> syncTransactions(String authHeader, java.util.List<TransactionLogRequest> requests) {
+        User user = getUserFromToken(authHeader);
+
+        // 1. Gelen diziyi timestamp'e göre ARTAN sırala (Ascending)
+        requests.sort((r1, r2) -> {
+            LocalDateTime t1 = r1.getTimestamp() != null ? r1.getTimestamp() : LocalDateTime.now();
+            LocalDateTime t2 = r2.getTimestamp() != null ? r2.getTimestamp() : LocalDateTime.now();
+            return t1.compareTo(t2);
+        });
+
+        java.util.List<SyncResultResponse> results = new java.util.ArrayList<>();
+
+        for (TransactionLogRequest request : requests) {
+            try {
+                // 1. Cihaz eşleşme kontrolü (403 DEVICE_MISMATCH)
+                Device device = deviceRepository.findByUser(user)
+                        .orElseThrow(DeviceMismatchException::new);
+                if (!device.getDeviceId().equals(request.getDeviceId())) {
+                    throw new DeviceMismatchException();
+                }
+
+                // 2. Idempotency kontrolü: Aynı user + deviceId + timestamp (saniye hassasiyetinde) ile kayıt var mı?
+                LocalDateTime timestamp = request.getTimestamp() != null ? request.getTimestamp() : LocalDateTime.now();
+                LocalDateTime start = timestamp.withNano(0);
+                LocalDateTime end = start.plusSeconds(1);
+
+                Optional<TransactionRecord> duplicateOpt = transactionRepository
+                        .findByUserAndDeviceIdAndTimestampBetween(user, request.getDeviceId(), start, end);
+
+                if (duplicateOpt.isPresent()) {
+                    results.add(SyncResultResponse.builder()
+                            .clientId(request.getClientId())
+                            .status("SAVED")
+                            .transactionId(duplicateOpt.get().getId())
+                            .build());
+                    continue; // Zaten kayıtlı, sonraki isteğe geç
+                }
+
+                // Normal logTransaction mantığı:
+                // 3. Type belirleme
+                Optional<TransactionRecord> lastOpt = transactionRepository.findTopByUserOrderByTimestampDesc(user);
+                TransactionType finalType = request.getType();
+                if (finalType == null) {
+                    if (lastOpt.isPresent() && lastOpt.get().getType() == TransactionType.GIRIS) {
+                        finalType = TransactionType.CIKIS;
+                    } else {
+                        finalType = TransactionType.GIRIS;
+                    }
+                }
+
+                // 4. QR parse
+                Location location = null;
+                if (request.getQrContent() != null && !request.getQrContent().trim().isEmpty()) {
+                    String[] parts = request.getQrContent().split(":");
+                    if (parts.length != 3 || !"PDKS".equals(parts[0])) {
+                        throw new InvalidQrException();
+                    }
+                    String qrFirmId = parts[1];
+                    String qrLocationCode = parts[2];
+                    if (!user.getFirmId().equalsIgnoreCase(qrFirmId)) {
+                        throw new InvalidQrException();
+                    }
+                    location = locationRepository.findByFirmIdAndCode(user.getFirmId(), qrLocationCode)
+                            .orElseThrow(InvalidQrException::new);
+                }
+
+                // 5. Fraud
+                fraudDetectionService.validateTransaction(user, request, location, lastOpt.orElse(null));
+
+                // Kayıt oluştur
+                TransactionRecord record = TransactionRecord.builder()
+                        .user(user)
+                        .type(finalType)
+                        .timestamp(timestamp)
+                        .latitude(request.getLatitude())
+                        .longitude(request.getLongitude())
+                        .qrContent(request.getQrContent())
+                        .location(location)
+                        .deviceId(request.getDeviceId())
+                        .method(request.getMethod())
+                        .build();
+
+                TransactionRecord saved = transactionRepository.save(record);
+
+                results.add(SyncResultResponse.builder()
+                        .clientId(request.getClientId())
+                        .status("SAVED")
+                        .transactionId(saved.getId())
+                        .build());
+
+            } catch (DeviceMismatchException ex) {
+                results.add(SyncResultResponse.builder()
+                        .clientId(request.getClientId())
+                        .status("REJECTED")
+                        .errorCode("DEVICE_MISMATCH")
+                        .build());
+            } catch (InvalidQrException ex) {
+                results.add(SyncResultResponse.builder()
+                        .clientId(request.getClientId())
+                        .status("REJECTED")
+                        .errorCode("INVALID_QR")
+                        .build());
+            } catch (com.pdks.backend.exception.LocationSuspiciousException ex) {
+                results.add(SyncResultResponse.builder()
+                        .clientId(request.getClientId())
+                        .status("REJECTED")
+                        .errorCode("LOCATION_SUSPICIOUS")
+                        .build());
+            } catch (Exception ex) {
+                results.add(SyncResultResponse.builder()
+                        .clientId(request.getClientId())
+                        .status("REJECTED")
+                        .errorCode("SYSTEM_ERROR")
+                        .build());
+            }
+        }
+
+        return results;
+    }
+
     // ─── Yardımcı ────────────────────────────────────────────────────────────
 
     private User getUserFromToken(String bearerToken) {

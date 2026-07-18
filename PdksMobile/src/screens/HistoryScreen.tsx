@@ -9,15 +9,22 @@ import {
   StatusBar,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import {colors, typography, spacing, radius} from '../theme';
 import {getHistory, TransactionHistoryItem} from '../services/api';
 import {getToken} from '../services/auth';
 import Card from '../components/Card';
+import {getQueue, getRejectedRecords, clearRejectedRecords, subscribeToQueueChanges} from '../services/offlineQueue';
+import {isOnline} from '../services/connectivity';
+
+interface ExtendedHistoryItem extends TransactionHistoryItem {
+  isWaiting?: boolean;
+}
 
 export default function HistoryScreen() {
-  const [history, setHistory] = useState<TransactionHistoryItem[]>([]);
+  const [history, setHistory] = useState<ExtendedHistoryItem[]>([]);
   const [page, setPage] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -30,6 +37,25 @@ export default function HistoryScreen() {
     try {
       setLoading(true);
       setError(null);
+
+      const queue = await getQueue();
+      const offlineItems: ExtendedHistoryItem[] = targetPage === 0 ? queue.map((item, idx) => ({
+        id: -(idx + 1),
+        type: item.type || 'GIRIS',
+        timestamp: item.timestamp || new Date().toISOString(),
+        locationName: item.method === 'QR' ? 'QR Kod (Çevrimdışı)' : 'GPS Konum (Çevrimdışı)',
+        method: item.method,
+        isWaiting: true,
+      })) : [];
+
+      if (!isOnline()) {
+        console.log('[SYNC] Offline mode in HistoryScreen. Showing offline items only.');
+        if (targetPage === 0) {
+          setHistory(offlineItems);
+          setIsLastPage(true);
+        }
+        return;
+      }
       
       const token = await getToken();
       if (!token) {
@@ -37,18 +63,30 @@ export default function HistoryScreen() {
         return;
       }
 
-      const response = await getHistory(token, targetPage, 15);
-      
-      if (isRefresh) {
-        setHistory(response.content);
-      } else {
-        setHistory(prev => [...prev, ...response.content]);
+      try {
+        const response = await getHistory(token, targetPage, 15);
+        if (isRefresh) {
+          setHistory([...offlineItems, ...response.content]);
+        } else {
+          setHistory(prev => {
+            const onlinePrev = prev.filter(item => !item.isWaiting);
+            return [...offlineItems, ...onlinePrev, ...response.content];
+          });
+        }
+        setIsLastPage(response.last);
+      } catch (err: any) {
+        console.warn('[SYNC] Failed to fetch online history. Showing offline items only.', err);
+        if (targetPage === 0) {
+          setHistory(offlineItems);
+          setIsLastPage(true);
+        } else {
+          throw err;
+        }
       }
       
       setPage(targetPage);
-      setIsLastPage(response.last);
     } catch (err: any) {
-      console.error('Fetch history failed:', err);
+      console.warn('Fetch history failed:', err);
       setError(err.message || 'Geçmiş listesi alınamadı.');
     } finally {
       setLoading(false);
@@ -57,7 +95,28 @@ export default function HistoryScreen() {
   };
 
   useEffect(() => {
+    const checkRejected = async () => {
+      try {
+        const rejected = await getRejectedRecords();
+        if (rejected.length > 0) {
+          await clearRejectedRecords();
+        }
+      } catch (e) {
+        console.warn('[SYNC] Failed to check rejected records:', e);
+      }
+    };
+
+    checkRejected();
     fetchHistoryData(0, true);
+
+    const unsubscribeQueue = subscribeToQueueChanges(() => {
+      fetchHistoryData(0, true);
+      checkRejected();
+    });
+
+    return () => {
+      unsubscribeQueue();
+    };
   }, []);
 
   const handleRefresh = () => {
@@ -89,7 +148,7 @@ export default function HistoryScreen() {
     }
   };
 
-  const renderItem = ({item}: {item: TransactionHistoryItem}) => {
+  const renderItem = ({item}: {item: ExtendedHistoryItem}) => {
     const isGiris = item.type === 'GIRIS';
     const {dateStr, timeStr} = formatTimestamp(item.timestamp);
     const indicatorColor = isGiris ? colors.success : colors.dark;
@@ -111,9 +170,15 @@ export default function HistoryScreen() {
             <Text style={styles.locationText} numberOfLines={1}>
               {item.locationName || 'Mobil Konum'}
             </Text>
-            <View style={styles.methodBadge}>
-              <Text style={styles.methodText}>{item.method}</Text>
-            </View>
+            {item.isWaiting ? (
+              <View style={styles.waitingBadge}>
+                <Text style={styles.waitingText}>BEKLİYOR</Text>
+              </View>
+            ) : (
+              <View style={styles.methodBadge}>
+                <Text style={styles.methodText}>{item.method}</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.dateText}>{dateStr}</Text>
@@ -298,5 +363,18 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilyBold,
     fontSize: 12,
     letterSpacing: 0.5,
+  },
+  waitingBadge: {
+    backgroundColor: '#FFEFA6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#E6D385',
+  },
+  waitingText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 10,
+    color: '#7A6200',
   },
 });

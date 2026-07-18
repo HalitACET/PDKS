@@ -34,7 +34,7 @@ public class FraudDetectionService {
             }
 
             // 1. Mock Konum Kontrolü
-            if (request.isMockLocation()) {
+            if (Boolean.TRUE.equals(request.getMockLocation())) {
                 logSuspiciousAttempt(user, request, SuspiciousReason.MOCK_FLAG);
                 throw new LocationSuspiciousException();
             }

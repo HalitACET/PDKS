@@ -15,9 +15,9 @@ import {getFullName} from '../services/auth';
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionSuccess'>;
 
 export default function TransactionSuccessScreen({route, navigation}: Props) {
-  const {type, timestamp, locationName} = route.params;
+  const {type, timestamp, locationName, isOffline} = route.params;
   const [firstName, setFirstName] = useState<string>('Personel');
-
+ 
   // Kullanıcı adını al ve ilk ismini filtrele
   useEffect(() => {
     const fetchName = async () => {
@@ -32,7 +32,7 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
     };
     fetchName();
   }, []);
-
+ 
   // Format timestamp (HH:mm)
   const formatTime = (tsStr: string) => {
     try {
@@ -45,7 +45,7 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
     }
     return '';
   };
-
+ 
   // Format date (17 Temmuz 2026 formatında)
   const formatDate = (tsStr: string) => {
     try {
@@ -68,13 +68,17 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
     }
     return '';
   };
-
+ 
   const isGiris = type === 'GIRIS';
   const successText = isGiris ? 'GİRİŞ YAPILDI' : 'ÇIKIŞ YAPILDI';
-  const subtitleText = isGiris ? 'Artık içeridesiniz' : 'İyi günler';
+  const subtitleText = isOffline 
+    ? 'İnternet yok — kaydınız cihazda saklandı, bağlantı gelince gönderilecek.'
+    : (isGiris ? 'Artık içeridesiniz' : 'İyi günler');
   const timeText = formatTime(timestamp);
   const dateText = formatDate(timestamp);
-  const locationText = locationName ? locationName : '● Doğrulandı (GPS)';
+  const locationText = isOffline
+    ? 'Kaydedildi (senkronize bekliyor)'
+    : (locationName ? locationName : '● Doğrulandı (GPS)');
 
   const handleDone = () => {
     navigation.popToTop();

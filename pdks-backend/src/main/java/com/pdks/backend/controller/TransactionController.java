@@ -51,4 +51,16 @@ public class TransactionController {
     ) {
         return ResponseEntity.ok(transactionService.getHistory(authHeader, pageable));
     }
+
+    /**
+     * POST /transaction/sync
+     * Offline hareketleri topluca senkronize eder.
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<java.util.List<SyncResultResponse>> syncTransactions(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody java.util.List<TransactionLogRequest> requests
+    ) {
+        return ResponseEntity.ok(transactionService.syncTransactions(authHeader, requests));
+    }
 }

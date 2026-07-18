@@ -18,6 +18,9 @@ import {colors, typography, spacing, radius} from '../theme';
 import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
 import SectionLabel from '../components/SectionLabel';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {isOnline, subscribeToConnectivity} from '../services/connectivity';
+import {getQueueCount, subscribeToQueueChanges, getQueue} from '../services/offlineQueue';
 
 type Props = any;
 
@@ -51,11 +54,78 @@ export default function HomeScreen({navigation}: Props) {
   const [nextAction, setNextAction] = useState<NextActionResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [online, setOnline] = useState<boolean>(isOnline());
+  const [queueCount, setQueueCount] = useState<number>(0);
+
+  // Subscribe to connectivity and queue size changes
+  useEffect(() => {
+    const unsubscribeConn = subscribeToConnectivity(onlineState => {
+      setOnline(onlineState);
+    });
+
+    const updateQueueCount = async () => {
+      const count = await getQueueCount();
+      setQueueCount(count);
+    };
+    updateQueueCount();
+    const unsubscribeQueue = subscribeToQueueChanges(updateQueueCount);
+
+    return () => {
+      unsubscribeConn();
+      unsubscribeQueue();
+    };
+  }, []);
+
+  const loadOfflineData = async () => {
+    try {
+      const cached = await AsyncStorage.getItem('pdks_next_action_cache');
+      let baseState: NextActionResponse = { suggestedType: 'GIRIS', lastTransaction: null };
+      if (cached) {
+        baseState = JSON.parse(cached);
+      }
+
+      const queue = await getQueue();
+      let currentSuggested = baseState.suggestedType;
+      let lastTx = baseState.lastTransaction;
+
+      // Sort queue ascending by timestamp
+      const sortedQueue = [...queue].sort((r1, r2) => {
+        const t1 = r1.timestamp ? new Date(r1.timestamp).getTime() : Date.now();
+        const t2 = r2.timestamp ? new Date(r2.timestamp).getTime() : Date.now();
+        return t1 - t2;
+      });
+
+      for (const item of sortedQueue) {
+        const itemType = item.type || currentSuggested;
+        currentSuggested = itemType === 'GIRIS' ? 'CIKIS' : 'GIRIS';
+        lastTx = {
+          type: itemType,
+          timestamp: item.timestamp || new Date().toISOString(),
+          locationName: 'Konum: Kaydedildi',
+        };
+      }
+
+      const computedState = {
+        suggestedType: currentSuggested,
+        lastTransaction: lastTx,
+      };
+
+      setNextAction(computedState);
+      await AsyncStorage.setItem('pdks_next_action_cache', JSON.stringify(computedState));
+    } catch (e) {
+      console.error('[SYNC] Failed to load offline action state:', e);
+    }
+  };
 
   const loadData = async (showLoading = true) => {
     try {
       if (showLoading) {
         setLoading(true);
+      }
+
+      if (!isOnline()) {
+        await loadOfflineData();
+        return;
       }
 
       const token = await getToken();
@@ -65,24 +135,26 @@ export default function HomeScreen({navigation}: Props) {
       }
       const data = await getNextAction(token);
       setNextAction(data);
+      // Cache data
+      await AsyncStorage.setItem('pdks_next_action_cache', JSON.stringify(data));
     } catch (err: any) {
       if (err.isDeviceMismatch) {
         navigation.replace('DeviceMismatch');
         return;
       }
-      console.error('Failed to load home data:', err);
+      console.warn('Failed to load home data:', err);
+      await loadOfflineData();
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
+  // Reload action state whenever focused or online/queueCount transitions
   useEffect(() => {
     if (isFocused) {
-      loadData();
+      loadData(false);
     }
-  }, [isFocused]);
+  }, [isFocused, online, queueCount]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -163,7 +235,16 @@ export default function HomeScreen({navigation}: Props) {
 
     return (
       <Card variant={isInside ? 'success' : 'dark'} style={styles.statusCard}>
-        <SectionLabel text="ŞU ANKİ DURUMUNUZ" onDark />
+        <View style={styles.statusHeaderRow}>
+          <SectionLabel text="ŞU ANKİ DURUMUNUZ" onDark />
+          {queueCount > 0 && (
+            <View style={styles.syncBadge}>
+              <Text style={styles.syncBadgeText}>
+                ● SENKRONİZE BEKLİYOR · {queueCount} KAYIT
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.statusText}>{statusText}</Text>
         <Text style={styles.lastText}>
           <Text style={{color: isInside ? '#FFF' : colors.primary}}>● </Text>
@@ -178,6 +259,13 @@ export default function HomeScreen({navigation}: Props) {
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar backgroundColor={colors.dark} barStyle="light-content" />
+      {!online && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>
+            İnternet yok — geçişleriniz cihazda kaydedilecek.
+          </Text>
+        </View>
+      )}
       <ScreenHeader
         companyName="ATLAS METAL A.Ş."
         title={`Merhaba, ${fullName.split(' ')[0]}`}
@@ -369,5 +457,38 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  offlineBanner: {
+    backgroundColor: '#FFEFA6',
+    paddingVertical: spacing.xs + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6D385',
+  },
+  offlineBannerText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    color: '#7A6200',
+  },
+  statusHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  syncBadge: {
+    backgroundColor: 'rgba(255, 239, 166, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 239, 166, 0.4)',
+  },
+  syncBadgeText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 10,
+    color: '#FFEFA6',
   },
 });

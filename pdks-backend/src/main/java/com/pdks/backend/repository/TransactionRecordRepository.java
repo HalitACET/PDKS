@@ -13,4 +13,5 @@ import java.util.Optional;
 public interface TransactionRecordRepository extends JpaRepository<TransactionRecord, Long> {
     Optional<TransactionRecord> findTopByUserOrderByTimestampDesc(User user);
     Page<TransactionRecord> findByUserOrderByTimestampDesc(User user, Pageable pageable);
+    Optional<TransactionRecord> findByUserAndDeviceIdAndTimestampBetween(User user, String deviceId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

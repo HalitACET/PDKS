@@ -19,6 +19,9 @@ import {colors, typography, spacing, radius} from '../theme';
 import Card from '../components/Card';
 import SectionLabel from '../components/SectionLabel';
 import Button from '../components/Button';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {isOnline} from '../services/connectivity';
+import {addToQueue} from '../services/offlineQueue';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConfirmTransaction'>;
 
@@ -61,6 +64,17 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
     const loadSuggestion = async () => {
       try {
         setLoading(true);
+        if (!isOnline()) {
+          const cached = await AsyncStorage.getItem('pdks_next_action_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            setType(parsed.suggestedType || 'GIRIS');
+          } else {
+            setType('GIRIS');
+          }
+          return;
+        }
+
         const token = await getToken();
         if (!token) {
           navigation.replace('Login');
@@ -70,7 +84,14 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
         setType(nextAction.suggestedType);
       } catch (err) {
         console.error('Failed to load transaction suggestion:', err);
-        // Varsayılan olarak GIRIS seç
+        try {
+          const cached = await AsyncStorage.getItem('pdks_next_action_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            setType(parsed.suggestedType || 'GIRIS');
+            return;
+          }
+        } catch (_) {}
         setType('GIRIS');
       } finally {
         setLoading(false);
@@ -84,8 +105,55 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
     setType(prev => (prev === 'GIRIS' ? 'CIKIS' : 'GIRIS'));
   };
 
+  const handleOfflineSave = async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      await addToQueue({
+        type,
+        timestamp,
+        latitude,
+        longitude,
+        qrContent,
+        method,
+        mockLocation: route.params.mockLocation ?? false,
+      });
+
+      // Update next action cache immediately in AsyncStorage for continuity
+      try {
+        const nextSuggested = type === 'GIRIS' ? 'CIKIS' : 'GIRIS';
+        const nextActionState = {
+          suggestedType: nextSuggested,
+          lastTransaction: {
+            type: type!,
+            timestamp,
+            locationName: 'Konum: Kaydedildi',
+          }
+        };
+        await AsyncStorage.setItem('pdks_next_action_cache', JSON.stringify(nextActionState));
+      } catch (cacheErr) {
+        console.warn('[SYNC] Failed to update next action cache:', cacheErr);
+      }
+
+      navigation.replace('TransactionSuccess', {
+        type: type!,
+        timestamp,
+        locationName: null,
+        isOffline: true,
+      });
+    } catch (err) {
+      console.error('[SYNC] Failed to save offline:', err);
+      Alert.alert('Hata', 'Kayıt çevrimdışı kuyruğa eklenemedi.');
+    }
+  };
+
   const handleConfirm = async () => {
     if (!type) return;
+
+    if (!isOnline()) {
+      console.log('[SYNC] Device is offline. Directing to offline save.');
+      await handleOfflineSave();
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -127,7 +195,9 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
         Alert.alert('Geçersiz İşlem', 'Okutulan QR kod bu firmaya ait değil veya geçersizdir.');
         navigation.goBack();
       } else {
-        Alert.alert('Hata', error.message || 'Geçiş işlemi gerçekleştirilemedi.');
+        // Ağ hatası veya timeout durumunda offline'a düşür
+        console.log('[SYNC] Network/Server error. Redirecting to offline save.');
+        await handleOfflineSave();
       }
     } finally {
       setSubmitting(false);
