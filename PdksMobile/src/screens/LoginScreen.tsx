@@ -9,6 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
@@ -19,6 +22,9 @@ import {
   getDeviceName,
   registerDevice,
 } from '../services/device';
+import {setSession} from '../store/session';
+import {colors, typography, spacing, radius} from '../theme';
+import Button from '../components/Button';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -28,9 +34,10 @@ export default function LoginScreen({navigation}: Props) {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<'firm' | 'username' | 'password' | null>(null);
 
   const handleLogin = async () => {
-    // Basit boş alan kontrolü
     if (!firmId.trim() || !username.trim() || !password.trim()) {
       setErrorMessage('Tüm alanları doldurunuz.');
       return;
@@ -40,10 +47,8 @@ export default function LoginScreen({navigation}: Props) {
     setIsLoading(true);
 
     try {
-      // 1. Bu cihazın UUID'sini al (keychain'den veya DeviceInfo'dan)
       const deviceId = await getOrCreateDeviceId();
 
-      // 2. Login isteği — backend'e deviceId de gönder
       const response = await login(
         firmId.trim(),
         username.trim(),
@@ -51,13 +56,17 @@ export default function LoginScreen({navigation}: Props) {
         deviceId,
       );
 
-      // 3. Token'ı ve kullanıcı adını güvenli depoya kaydet
       await saveToken(response.token);
       await saveFullName(response.fullName);
 
-      // 4. Cihaz bağlama kontrolü
+      setSession({
+        fullName: response.fullName,
+        role: response.role,
+        firmId: firmId.trim(),
+        username: username.trim(),
+      });
+
       if (!response.deviceRegistered) {
-        // İlk kez bu cihazdan giriş — cihazı kaydet
         try {
           await registerDevice(response.token);
 
@@ -72,17 +81,14 @@ export default function LoginScreen({navigation}: Props) {
               },
             ],
           );
-          return; // Alert kapandıktan sonra navigateAfterLogin çalışacak
+          return;
         } catch {
-          // Cihaz kayıt hatası — yine de devam et (retry sonraki girişte)
           navigateAfterLogin(response);
         }
       } else {
-        // Cihaz zaten kayıtlı ve eşleşiyor — direkt devam
         navigateAfterLogin(response);
       }
     } catch (error: any) {
-      // 403 DEVICE_MISMATCH → DeviceMismatch ekranına yönlendir
       if (error.isDeviceMismatch) {
         navigation.replace('DeviceMismatch');
         return;
@@ -99,10 +105,8 @@ export default function LoginScreen({navigation}: Props) {
     token: string;
   }) => {
     if (response.mustChangePassword) {
-      // İlk giriş — şifre değiştirme zorunlu
       navigation.replace('ChangePassword', {token: response.token});
     } else {
-      // Normal giriş — ana ekrana git
       navigation.replace('Home', {
         fullName: response.fullName,
         token: response.token,
@@ -111,87 +115,266 @@ export default function LoginScreen({navigation}: Props) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>PDKS Giriş</Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <StatusBar backgroundColor={colors.dark} barStyle="light-content" />
+      
+      {/* Üst Antrasit Logo Barı */}
+      <View style={styles.headerBanner}>
+        <View style={styles.logoBadge}>
+          <Text style={styles.logoText}>AM</Text>
+        </View>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>PDKS Mobil</Text>
+          <Text style={styles.headerSubtitle}>Personel giriş-çıkış sistemi</Text>
+        </View>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Firma ID"
-        value={firmId}
-        onChangeText={setFirmId}
-        autoCapitalize="characters"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Kullanıcı Adı"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Şifre"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled">
+          
+          <Text style={styles.welcomeText}>Hoş geldiniz</Text>
 
-      {errorMessage !== '' && (
-        <Text style={styles.errorText}>{errorMessage}</Text>
-      )}
+          {/* Form Alanı */}
+          <View style={styles.form}>
+            {/* Firma Kodu Input */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>FİRMA KODU</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'firm' && styles.inputFocused,
+                ]}
+                placeholder="Firma Kodu"
+                placeholderTextColor={colors.textSecondary}
+                value={firmId}
+                onChangeText={setFirmId}
+                autoCapitalize="characters"
+                onFocus={() => setFocusedField('firm')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleLogin}
-        disabled={isLoading}>
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>GİRİŞ YAP</Text>
-        )}
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+            {/* Kullanıcı Adı Input */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>KULLANICI ADI</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'username' && styles.inputFocused,
+                ]}
+                placeholder="Kullanıcı Adı"
+                placeholderTextColor={colors.textSecondary}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                onFocus={() => setFocusedField('username')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            {/* Şifre Input */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>ŞİFRE</Text>
+              <View
+                style={[
+                  styles.passwordContainer,
+                  focusedField === 'password' && styles.inputFocused,
+                ]}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Şifre"
+                  placeholderTextColor={colors.textSecondary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                />
+                <TouchableOpacity
+                  style={styles.toggleShowPassword}
+                  activeOpacity={0.7}
+                  onPress={() => setShowPassword(!showPassword)}>
+                  <Text style={styles.toggleText}>
+                    {showPassword ? 'GİZLE' : 'GÖSTER'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {errorMessage !== '' && (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            )}
+
+            <Button
+              title="GİRİŞ YAP"
+              onPress={handleLogin}
+              variant="primary"
+              loading={isLoading}
+              style={styles.loginBtn}
+            />
+
+            <Text style={styles.infoText}>
+              Şifrenizi unuttuysanız İK birimine başvurun.
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* En Alt Sorun Bildirim Metni */}
+        <Text style={styles.footerText}>
+          Sorun mu yaşıyorsunuz? İK birimine başvurun.
+        </Text>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeContainer: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 32,
-    textAlign: 'center',
+  headerBanner: {
+    backgroundColor: colors.dark,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.darkElevated,
+  },
+  logoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  logoText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 18,
+    color: colors.dark,
+    letterSpacing: 0.5,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 18,
+    color: colors.textOnDark,
+  },
+  headerSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: colors.textOnDarkMuted,
+    marginTop: 2,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  welcomeText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 22,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+  },
+  form: {
+    width: '100%',
+  },
+  inputWrapper: {
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 1.2,
+    marginBottom: spacing.xs,
   },
   input: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 54,
+    fontSize: 15,
+    fontFamily: typography.fontFamilyMedium,
+    color: colors.textPrimary,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    height: 54,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    fontSize: 15,
+    fontFamily: typography.fontFamilyMedium,
+    color: colors.textPrimary,
+    height: '100%',
+  },
+  toggleShowPassword: {
+    height: '100%',
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+  toggleText: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
   },
   errorText: {
-    color: 'red',
-    marginBottom: 12,
+    fontFamily: typography.fontFamilyBold,
+    color: colors.danger,
+    fontSize: 13,
     textAlign: 'center',
+    marginBottom: spacing.md,
   },
-  button: {
-    backgroundColor: '#333',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
+  loginBtn: {
+    width: '100%',
+    marginTop: spacing.sm,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  infoText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  footerText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: colors.textSecondary,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginVertical: spacing.md,
   },
 });

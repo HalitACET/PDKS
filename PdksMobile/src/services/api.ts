@@ -100,6 +100,7 @@ export interface TransactionLogRequest {
   qrContent: string | null;
   method: 'QR' | 'GPS';
   deviceId: string;
+  mockLocation: boolean;
 }
 
 export interface TransactionLogResponse {
@@ -138,6 +139,13 @@ export async function getNextAction(token: string): Promise<NextActionResponse> 
     });
     return response.data;
   } catch (error: any) {
+    if (error.response?.status === 403) {
+      const mismatchError = new Error(
+        error.response?.data?.message ?? 'Cihaz uyuşmazlığı hatası.',
+      ) as any;
+      mismatchError.isDeviceMismatch = true;
+      throw mismatchError;
+    }
     const message = error.response?.data?.message ?? 'Durum bilgisi alınamadı.';
     throw new Error(message);
   }
@@ -172,6 +180,13 @@ export async function logTransaction(
       ) as any;
       qrError.isInvalidQr = true;
       throw qrError;
+    }
+    if (error.response?.status === 403 && error.response?.data?.errorCode === 'LOCATION_SUSPICIOUS') {
+      const locError = new Error(
+        error.response?.data?.message ?? 'Konumunuz doğrulanamadı.',
+      ) as any;
+      locError.isLocationSuspicious = true;
+      throw locError;
     }
     const message = error.response?.data?.message ?? 'İşlem kaydı oluşturulamadı.';
     throw new Error(message);

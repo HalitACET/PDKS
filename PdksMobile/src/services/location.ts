@@ -1,6 +1,6 @@
 import {Platform} from 'react-native';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
-import Geolocation from '@react-native-community/geolocation';
+import Geolocation from 'react-native-geolocation-service';
 
 /**
  * Konum izni ister. Android için ACCESS_FINE_LOCATION kontrol edilir.
@@ -23,41 +23,53 @@ export async function requestLocationPermission(): Promise<boolean> {
   }
 }
 
-export function getCurrentPosition(): Promise<{latitude: number; longitude: number}> {
+export function getCurrentPosition(): Promise<{latitude: number; longitude: number; mocked: boolean}> {
   return new Promise((resolve, reject) => {
+    console.log('[LOCATION] Geolocation getCurrentPosition baslatildi (High Accuracy: true, Timeout: 10s)');
     Geolocation.getCurrentPosition(
       (position) => {
+        const mocked = (position as any).mocked || (position.coords as any).mocked || false;
+        console.log(`[LOCATION] Konum alindi (High Accuracy): lat: ${position.coords.latitude}, lng: ${position.coords.longitude}, mocked: ${mocked}`);
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
+          mocked,
         });
       },
       (error) => {
-        console.warn('Geolocation high accuracy failed, trying low accuracy fallback...', error);
+        console.log('[LOCATION] Geolocation high accuracy basarisiz oldu. Fallback denenecek. Hata:', error);
         
+        console.log('[LOCATION] Geolocation getCurrentPosition baslatildi (High Accuracy: false, Timeout: 5s)');
         // Yüksek doğruluk (GPS) başarısız olursa, hücresel/wifi üzerinden konum almayı dene
         Geolocation.getCurrentPosition(
           (position) => {
+            const mocked = (position as any).mocked || (position.coords as any).mocked || false;
+            console.log(`[LOCATION] Konum alindi (Low Accuracy Fallback): lat: ${position.coords.latitude}, lng: ${position.coords.longitude}, mocked: ${mocked}`);
             resolve({
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
+              mocked,
             });
           },
           (error2) => {
-            console.error('Geolocation fallback low accuracy also failed:', error2);
+            console.log('[LOCATION] Geolocation fallback low accuracy de basarisiz oldu. Hata:', error2);
             reject(new Error('LOCATION_UNAVAILABLE'));
           },
           {
             enableHighAccuracy: false,
-            timeout: 10000,
+            timeout: 5000, // 5 saniye
             maximumAge: 10000,
+            forceRequestLocation: true,
+            showLocationDialog: true,
           }
         );
       },
       {
         enableHighAccuracy: true,
-        timeout: 8000, // 8 saniye GPS için bekle
+        timeout: 10000, // 10 saniye
         maximumAge: 5000,
+        forceRequestLocation: true,
+        showLocationDialog: true,
       }
     );
   });

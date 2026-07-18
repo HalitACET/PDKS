@@ -6,30 +6,58 @@ import {
   StyleSheet,
   ActivityIndicator,
   SafeAreaView,
+  ScrollView,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useIsFocused} from '@react-navigation/native';
-import {RootStackParamList} from '../navigation/AppNavigator';
-import {removeToken, getFullName, getToken} from '../services/auth';
+import {getToken} from '../services/auth';
 import {getNextAction, NextActionResponse} from '../services/api';
+import {useSession} from '../store/session';
+import {colors, typography, spacing, radius} from '../theme';
+import ScreenHeader from '../components/ScreenHeader';
+import Card from '../components/Card';
+import SectionLabel from '../components/SectionLabel';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+type Props = any;
+
+// ─── Özel İkon Çizimleri ──────────────────────────────────────────────────────
+
+const QrGridIcon = ({color}: {color: string}) => (
+  <View style={styles.qrIconContainer}>
+    <View style={styles.qrDotRow}>
+      <View style={[styles.qrDot, {backgroundColor: color}]} />
+      <View style={[styles.qrDot, {backgroundColor: color}]} />
+    </View>
+    <View style={styles.qrDotRow}>
+      <View style={[styles.qrDot, {backgroundColor: color}]} />
+      <View style={[styles.qrDot, {backgroundColor: color}]} />
+    </View>
+  </View>
+);
+
+const GpsTargetIcon = ({color}: {color: string}) => (
+  <View style={[styles.gpsIconContainer, {borderColor: color}]}>
+    <View style={[styles.gpsDot, {backgroundColor: color}]} />
+  </View>
+);
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 export default function HomeScreen({navigation}: Props) {
   const isFocused = useIsFocused();
-  const [fullName, setFullName] = useState<string>('');
+  const {fullName: sessionFullName} = useSession();
+  const fullName = sessionFullName || 'Personel';
   const [nextAction, setNextAction] = useState<NextActionResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const loadData = async () => {
+  const loadData = async (showLoading = true) => {
     try {
-      setLoading(true);
-      
-      // 1. Get full name
-      const name = await getFullName();
-      setFullName(name || 'Personel');
+      if (showLoading) {
+        setLoading(true);
+      }
 
-      // 2. Get next action
       const token = await getToken();
       if (!token) {
         navigation.replace('Login');
@@ -37,10 +65,16 @@ export default function HomeScreen({navigation}: Props) {
       }
       const data = await getNextAction(token);
       setNextAction(data);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.isDeviceMismatch) {
+        navigation.replace('DeviceMismatch');
+        return;
+      }
       console.error('Failed to load home data:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -50,9 +84,10 @@ export default function HomeScreen({navigation}: Props) {
     }
   }, [isFocused]);
 
-  const handleLogout = async () => {
-    await removeToken();
-    navigation.replace('Login');
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData(false);
+    setRefreshing(false);
   };
 
   // Helper to format time (HH:mm) from LocalDateTime string
@@ -69,20 +104,55 @@ export default function HomeScreen({navigation}: Props) {
     return '';
   };
 
+  // Bugün geçirilen süreyi hesapla
+  const getTodayDuration = () => {
+    const last = nextAction?.lastTransaction;
+    if (!last || last.type !== 'GIRIS') {
+      return {duration: '—', since: ''};
+    }
+
+    try {
+      const txTime = new Date(last.timestamp);
+      const now = new Date();
+      
+      // Aynı gün kontrolü
+      if (txTime.toDateString() === now.toDateString()) {
+        const diffMs = now.getTime() - txTime.getTime();
+        if (diffMs > 0) {
+          const totalMins = Math.floor(diffMs / 60000);
+          const hrs = Math.floor(totalMins / 60);
+          const mins = totalMins % 60;
+          
+          // Giriş saatini biçimlendir
+          const enterTime = last.timestamp.split('T')[1].substring(0, 5);
+          
+          return {
+            duration: `${hrs} sa ${mins} dk`,
+            since: `${enterTime}'den beri`,
+          };
+        }
+      }
+    } catch (e) {
+      // pas geç
+    }
+    return {duration: '—', since: ''};
+  };
+
+  const {duration: todayDuration, since: sinceText} = getTodayDuration();
+
   const renderStatusCard = () => {
     if (loading) {
       return (
-        <View style={[styles.card, styles.loadingCard]}>
-          <ActivityIndicator size="small" color="#3498db" />
-        </View>
+        <Card style={styles.loadingCard}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </Card>
       );
     }
 
     const isInside = nextAction?.suggestedType === 'CIKIS';
-    const cardStyle = isInside ? styles.insideCard : styles.outsideCard;
     const statusText = isInside ? 'İÇERİDESİNİZ' : 'DIŞARIDASINIZ';
-
     const last = nextAction?.lastTransaction;
+    
     let lastText = 'Henüz geçiş kaydı yok';
     if (last) {
       const typeText = last.type === 'GIRIS' ? 'Giriş' : 'Çıkış';
@@ -92,11 +162,14 @@ export default function HomeScreen({navigation}: Props) {
     }
 
     return (
-      <View style={[styles.card, cardStyle]}>
-        <Text style={styles.statusLabel}>Mevcut Durum</Text>
+      <Card variant={isInside ? 'success' : 'dark'} style={styles.statusCard}>
+        <SectionLabel text="ŞU ANKİ DURUMUNUZ" onDark />
         <Text style={styles.statusText}>{statusText}</Text>
-        <Text style={styles.lastText}>{lastText}</Text>
-      </View>
+        <Text style={styles.lastText}>
+          <Text style={{color: isInside ? '#FFF' : colors.primary}}>● </Text>
+          {lastText}
+        </Text>
+      </Card>
     );
   };
 
@@ -104,40 +177,71 @@ export default function HomeScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>
-            Hoş geldin, {'\n'}
-            <Text style={styles.nameText}>{fullName}</Text>
-          </Text>
-        </View>
-
+      <StatusBar backgroundColor={colors.dark} barStyle="light-content" />
+      <ScreenHeader
+        companyName="ATLAS METAL A.Ş."
+        title={`Merhaba, ${fullName.split(' ')[0]}`}
+        fullName={fullName}
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }>
         {renderStatusCard()}
 
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, styles.qrButton]}
             disabled={loading}
-            onPress={() => navigation.navigate('QrScan')}
-          >
-            <Text style={styles.actionButtonText}>QR İLE {actionText}</Text>
-            <Text style={styles.actionSubtext}>Kamerayı açarak QR kodu tarayın</Text>
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('QrScan')}>
+            <QrGridIcon color={colors.textOnPrimary} />
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionButtonText}>QR İLE {actionText}</Text>
+              <Text style={styles.actionSubtext}>Kapıdaki kodu okutun</Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.gpsButton]}
             disabled={loading}
-            onPress={() => navigation.navigate('GpsTransaction')}
-          >
-            <Text style={styles.actionButtonText}>KONUM İLE {actionText}</Text>
-            <Text style={styles.actionSubtext}>GPS konumunuzu doğrulayın</Text>
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('GpsTransaction')}>
+            <GpsTargetIcon color={colors.textOnDark} />
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionButtonText, {color: colors.textOnDark}]}>
+                KONUM İLE {actionText}
+              </Text>
+              <Text style={[styles.actionSubtext, {color: colors.textOnDarkMuted}]}>
+                Tesis alanındayken kullanın
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Çıkış Yap</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.bottomRow}>
+          <Card style={styles.bottomCard}>
+            <SectionLabel text="Vardiya" />
+            <Text style={styles.bottomCardValue}>08:00 – 17:00</Text>
+            <Text style={styles.bottomCardSub}>Gündüz vardiyası</Text>
+          </Card>
+          
+          <Card style={styles.bottomCard}>
+            <SectionLabel text="Bugün" />
+            <Text style={styles.bottomCardValue}>{todayDuration}</Text>
+            {sinceText !== '' && (
+              <Text style={styles.bottomCardSub}>{sinceText}</Text>
+            )}
+          </Card>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -145,107 +249,125 @@ export default function HomeScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'space-between',
-  },
-  header: {
-    marginTop: 16,
-  },
-  welcomeText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-  },
-  nameText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-  },
-  card: {
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    marginVertical: 20,
+    padding: spacing.md,
+    gap: spacing.md,
   },
   loadingCard: {
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 120,
+    height: 140,
+    backgroundColor: colors.surface,
   },
-  insideCard: {
-    backgroundColor: '#2ecc71',
-  },
-  outsideCard: {
-    backgroundColor: '#34495e',
-  },
-  statusLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  statusCard: {
+    padding: spacing.lg,
+    justifyContent: 'center',
   },
   statusText: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginVertical: 8,
+    color: colors.textOnDark,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 28,
+    marginVertical: spacing.xs,
   },
   lastText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
+    color: colors.textOnDarkMuted,
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 13,
   },
   actionsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 16,
+    gap: spacing.sm,
+    marginVertical: spacing.xs,
   },
   actionButton: {
-    padding: 20,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 72,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
   },
   qrButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: colors.primary,
   },
   gpsButton: {
-    backgroundColor: '#9b59b6',
+    backgroundColor: colors.dark,
+  },
+  actionTextContainer: {
+    flex: 1,
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: colors.textOnPrimary,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 15,
+    letterSpacing: 0.5,
   },
   actionSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    marginTop: 4,
+    color: colors.textSecondary,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    marginTop: 2,
   },
-  logoutButton: {
-    alignSelf: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e74c3c',
-    marginBottom: 16,
+  bottomRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
-  logoutText: {
-    color: '#e74c3c',
+  bottomCard: {
+    flex: 1,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    minHeight: 110,
+    justifyContent: 'center',
+  },
+  bottomCardValue: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 16,
-    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
+  },
+  bottomCardSub: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  qrIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: spacing.md,
+  },
+  qrDotRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  qrDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  gpsIconContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  gpsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

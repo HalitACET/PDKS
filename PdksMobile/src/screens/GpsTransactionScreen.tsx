@@ -6,10 +6,17 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Linking,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {requestLocationPermission, getCurrentPosition} from '../services/location';
+import {checkLocationSecurity} from '../services/security';
+import {colors, typography, spacing, radius} from '../theme';
+import InfoListCard from '../components/InfoListCard';
+import Button from '../components/Button';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GpsTransaction'>;
 
@@ -25,8 +32,25 @@ export default function GpsTransactionScreen({navigation}: Props) {
         return;
       }
 
+      // 1. Statik güvenlik kontrolü (Konum almaya çalışmadan önce sahte konum uygulaması seçilmiş mi kontrol et)
+      const staticSecurity = checkLocationSecurity();
+      if (staticSecurity.isMocked) {
+        navigation.replace('FakeLocation');
+        return;
+      }
+      if (staticSecurity.isRooted) {
+        console.warn('Cihaz rootlu, güvenlik uyarısı (TODO: engelleme politikası eklenebilir)');
+      }
+
       setStatus('fetching');
       const pos = await getCurrentPosition();
+
+      // 2. Dinamik güvenlik kontrolü (Gelen koordinat objesi üzerinden sahte konum kontrolü)
+      const dynamicSecurity = checkLocationSecurity(pos);
+      if (dynamicSecurity.isMocked || pos.mocked === true) {
+        navigation.replace('FakeLocation');
+        return;
+      }
 
       // Konum alındı, onay ekranına yönlendir
       navigation.replace('ConfirmTransaction', {
@@ -34,9 +58,10 @@ export default function GpsTransactionScreen({navigation}: Props) {
         latitude: pos.latitude,
         longitude: pos.longitude,
         method: 'GPS',
+        mockLocation: false, // isMocked ise zaten yönlendiriliyor
       });
-    } catch (err) {
-      console.error('GPS flow failed:', err);
+    } catch (err: any) {
+      console.log('[LOCATION] Konum hatası:', err?.message || err);
       setStatus('error');
     }
   };
@@ -51,125 +76,169 @@ export default function GpsTransactionScreen({navigation}: Props) {
 
   if (status === 'error') {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorCard}>
-          <Text style={styles.errorIcon}>📍</Text>
-          <Text style={styles.errorTitle}>Konumunuz Alınamıyor</Text>
-          <Text style={styles.errorDescription}>
-            Geçiş işlemi yapabilmek için yüksek doğruluklu GPS konum bilgisi gereklidir.
-            Lütfen konum servislerinin açık ve uygulamaya konum izni verildiğinden emin olun.
-          </Text>
+      <SafeAreaView style={styles.safeContainer}>
+        <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+        
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.errorContainer}>
+            {/* Sarı Tonlu Daire İçinde Hedef İkonu */}
+            <View style={styles.targetBadge}>
+              <View style={styles.targetInnerCircle}>
+                <View style={styles.targetCenterDot} />
+              </View>
+            </View>
 
-          <TouchableOpacity style={styles.retryButton} onPress={startGpsFlow}>
-            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
-          </TouchableOpacity>
+            {/* Başlık */}
+            <Text style={styles.errorTitle}>Konumunuz alınamıyor</Text>
+            
+            {/* Açıklama */}
+            <Text style={styles.errorDescription}>
+              Geçiş işlemi yapabilmek için yüksek doğruluklu GPS konum bilgisi gereklidir. Lütfen konum servislerinin açık ve uygulamaya konum izni verildiğinden emin olun.
+            </Text>
 
-          <TouchableOpacity style={styles.settingsButton} onPress={openAppSettings}>
-            <Text style={styles.settingsButtonText}>Konum Ayarlarını Aç</Text>
-          </TouchableOpacity>
+            {/* Numaralı Liste Bilgi Kartı */}
+            <InfoListCard
+              title="NE YAPMALIYIM?"
+              items={[
+                'Aşağıdaki düğmeyle konum ayarlarını açın.',
+                '"Konum" anahtarını açık duruma getirin.',
+                'Uygulamaya dönüp tekrar deneyin.',
+              ]}
+            />
 
-          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.cancelButtonText}>İptal Et</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            {/* Butonlar */}
+            <View style={styles.footer}>
+              <Button
+                title="KONUM AYARLARINI AÇ"
+                onPress={openAppSettings}
+                variant="primary"
+                style={styles.actionBtn}
+              />
+              <Button
+                title="TEKRAR DENE"
+                onPress={startGpsFlow}
+                variant="outline"
+                style={styles.actionBtn}
+              />
+              <TouchableOpacity
+                style={styles.cancelLink}
+                activeOpacity={0.7}
+                onPress={() => navigation.goBack()}>
+                <Text style={styles.cancelLinkText}>İptal Et</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#9b59b6" />
-      <Text style={styles.loadingText}>
-        {status === 'requesting' ? 'Konum izni isteniyor...' : 'Konumunuz doğrulanıyor...'}
-      </Text>
-      <Text style={styles.subText}>Bu işlem birkaç saniye sürebilir.</Text>
-    </View>
+    <SafeAreaView style={styles.safeContainer}>
+      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>
+          {status === 'requesting' ? 'Konum izni isteniyor...' : 'Konumunuz doğrulanıyor...'}
+        </Text>
+        <Text style={styles.subText}>Bu işlem birkaç saniye sürebilir.</Text>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f8f9fa',
+    padding: spacing.lg,
   },
   loadingText: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginTop: 24,
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
   },
   subText: {
+    fontFamily: typography.fontFamily,
     fontSize: 14,
-    color: '#7f8c8d',
-    marginTop: 8,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
-  errorCard: {
-    backgroundColor: '#fff',
-    padding: 32,
-    borderRadius: 16,
+  scrollContent: {
+    flexGrow: 1,
+  },
+  errorContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    width: '100%',
+    justifyContent: 'center',
+    flexGrow: 1,
   },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  targetBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#FEF6DF',
+    borderWidth: 1,
+    borderColor: '#FCE7B2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  targetInnerCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  targetCenterDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
   },
   errorTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#c0392b',
-    marginBottom: 12,
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 20,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   errorDescription: {
+    fontFamily: typography.fontFamily,
     fontSize: 14,
-    color: '#7f8c8d',
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 32,
+    lineHeight: 22,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.sm,
   },
-  retryButton: {
-    backgroundColor: '#9b59b6',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
+  footer: {
     width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
+    gap: spacing.sm,
+    marginTop: spacing.xl,
   },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  settingsButton: {
-    borderWidth: 1,
-    borderColor: '#9b59b6',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
+  actionBtn: {
     width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
   },
-  settingsButtonText: {
-    color: '#9b59b6',
-    fontSize: 16,
-    fontWeight: 'bold',
+  cancelLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
   },
-  cancelButton: {
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    color: '#7f8c8d',
+  cancelLinkText: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 14,
-    fontWeight: 'bold',
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

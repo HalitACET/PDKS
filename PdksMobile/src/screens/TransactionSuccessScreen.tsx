@@ -1,18 +1,37 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
+import {colors, typography, spacing, radius} from '../theme';
+import Button from '../components/Button';
+import {getFullName} from '../services/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionSuccess'>;
 
 export default function TransactionSuccessScreen({route, navigation}: Props) {
   const {type, timestamp, locationName} = route.params;
+  const [firstName, setFirstName] = useState<string>('Personel');
+
+  // Kullanıcı adını al ve ilk ismini filtrele
+  useEffect(() => {
+    const fetchName = async () => {
+      try {
+        const name = await getFullName();
+        if (name) {
+          setFirstName(name.trim().split(/\s+/)[0]);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchName();
+  }, []);
 
   // Format timestamp (HH:mm)
   const formatTime = (tsStr: string) => {
@@ -27,14 +46,21 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
     return '';
   };
 
-  // Format date (dd.MM.yyyy)
+  // Format date (17 Temmuz 2026 formatında)
   const formatDate = (tsStr: string) => {
     try {
       const parts = tsStr.split('T');
       if (parts.length > 0) {
         const dateParts = parts[0].split('-');
         if (dateParts.length === 3) {
-          return `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+          const day = parseInt(dateParts[2], 10);
+          const monthIndex = parseInt(dateParts[1], 10) - 1;
+          const year = dateParts[0];
+          const months = [
+            'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+            'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+          ];
+          return `${day} ${months[monthIndex]} ${year}`;
         }
       }
     } catch (e) {
@@ -45,39 +71,56 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
 
   const isGiris = type === 'GIRIS';
   const successText = isGiris ? 'GİRİŞ YAPILDI' : 'ÇIKIŞ YAPILDI';
+  const subtitleText = isGiris ? 'Artık içeridesiniz' : 'İyi günler';
   const timeText = formatTime(timestamp);
   const dateText = formatDate(timestamp);
-  const locationText = locationName ? `Konum: ${locationName}` : 'Konum: Doğrulandı (GPS)';
+  const locationText = locationName ? locationName : '● Doğrulandı (GPS)';
 
   const handleDone = () => {
-    // HomeScreen'e geri dön (ve yığını temizle)
     navigation.popToTop();
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor={colors.success} barStyle="light-content" />
+      
       <View style={styles.content}>
         <View style={styles.checkmarkCircle}>
           <Text style={styles.checkmarkIcon}>✓</Text>
         </View>
 
         <Text style={styles.successTitle}>{successText}</Text>
+        <Text style={styles.successSubtitle}>{subtitleText}</Text>
         
         <View style={styles.detailsCard}>
-          <Text style={styles.timeLabel}>Saat</Text>
-          <Text style={styles.timeVal}>{timeText}</Text>
-
-          <Text style={styles.dateVal}>{dateText}</Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.locationVal}>{locationText}</Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>SAAT</Text>
+            <Text style={styles.detailValue}>{timeText}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>TARİH</Text>
+            <Text style={styles.detailValue}>{dateText}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>KONUM</Text>
+            <Text style={styles.detailValue}>{locationText}</Text>
+          </View>
         </View>
+
+        <Text style={styles.personalGreeting}>
+          İyi çalışmalar, {firstName}!
+        </Text>
       </View>
 
-      <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-        <Text style={styles.doneButtonText}>Ana Sayfaya Dön</Text>
-      </TouchableOpacity>
+      <Button
+        title="Ana Sayfaya Dön"
+        onPress={handleDone}
+        variant="outline"
+        style={styles.doneButton}
+        textStyle={styles.doneButtonText}
+      />
     </SafeAreaView>
   );
 }
@@ -85,93 +128,90 @@ export default function TransactionSuccessScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2ecc71', // yeşil arkaplan
-    padding: 24,
+    backgroundColor: colors.success,
+    padding: spacing.lg,
     justifyContent: 'space-between',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
   checkmarkCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  checkmarkIcon: {
-    fontSize: 48,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  successTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 32,
-    letterSpacing: 0.5,
-  },
-  detailsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    alignItems: 'center',
+    marginBottom: spacing.lg,
+    // Hafif parlama efekti
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  timeLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#bdc3c7',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  checkmarkIcon: {
+    fontSize: 48,
+    color: colors.success,
+    fontFamily: typography.fontFamilyBold,
   },
-  timeVal: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginVertical: 4,
+  successTitle: {
+    fontSize: 32,
+    fontFamily: typography.fontFamilyBold,
+    color: '#fff',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
-  dateVal: {
-    fontSize: 16,
-    color: '#7f8c8d',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#ecf0f1',
-    width: '100%',
-    marginVertical: 16,
-  },
-  locationVal: {
+  successSubtitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#2c3e50',
+    fontFamily: typography.fontFamilyMedium,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xl,
+  },
+  detailsCard: {
+    backgroundColor: colors.successDark,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    gap: spacing.md,
+  },
+  detailRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    paddingBottom: spacing.sm,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamilyMedium,
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 1,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontFamily: typography.fontFamilyBold,
+    color: '#fff',
+    marginTop: 2,
+  },
+  personalGreeting: {
+    fontSize: 14,
+    fontFamily: typography.fontFamilyMedium,
+    color: '#fff',
+    marginTop: spacing.lg,
     textAlign: 'center',
   },
   doneButton: {
     backgroundColor: '#fff',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#fff',
+    width: '100%',
+    marginTop: spacing.md,
   },
   doneButtonText: {
-    color: '#2ecc71',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: colors.successDark,
+    fontFamily: typography.fontFamilyBold,
   },
 });

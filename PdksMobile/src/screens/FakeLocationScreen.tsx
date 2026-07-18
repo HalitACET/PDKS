@@ -10,13 +10,13 @@ import {
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
-import {colors, typography, spacing, radius} from '../theme';
+import {colors, typography, spacing} from '../theme';
 import InfoListCard from '../components/InfoListCard';
 import Button from '../components/Button';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'DeviceMismatch'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'FakeLocation'>;
 
-export default function DeviceMismatchScreen({navigation}: Props) {
+export default function FakeLocationScreen({navigation}: Props) {
   const handleHrContact = () => {
     Alert.alert('İK İletişim', 'İK: 0262 555 00 00');
   };
@@ -29,40 +29,40 @@ export default function DeviceMismatchScreen({navigation}: Props) {
         style={styles.scroll}
         contentContainerStyle={styles.container}>
         
-        {/* Yuvarlak Telefon İkonu */}
+        {/* Hata İkonu */}
         <View style={styles.iconCircle}>
-          <Text style={styles.phoneIcon}>📱</Text>
+          <Text style={styles.alertIcon}>!</Text>
         </View>
 
         {/* Başlık */}
-        <Text style={styles.title}>Bu Cihaz Kayıtlı Değil</Text>
+        <Text style={styles.title}>Geçiş kaydedilemedi</Text>
 
         {/* Açıklama */}
         <Text style={styles.description}>
-          Hesabınız başka bir telefona kayıtlı. Güvenlik nedeniyle geçişler yalnızca kayıtlı cihazdan yapılabilir.
+          Cihazınızdaki konum bilgisi güvenilir görünmüyor. Konumu değiştiren bir uygulama açık olabilir veya tesis sınırları dışında olabilirsiniz.
         </Text>
 
         {/* Bilgilendirme Listesi */}
         <InfoListCard
           title="NE YAPMALIYIM?"
           items={[
-            'Telefonunuz yenilendiyse İK birimine başvurun.',
-            'İK cihaz kaydınızı sıfırladıktan sonra bu telefondan giriş yapabilirsiniz.',
-            'Bu sırada geçişinizi kapı görevlisine yaptırabilirsiniz.',
+            'Sahte konum (mock location) uygulamalarını kapatın.',
+            'Telefonu yeniden başlatıp tekrar deneyin.',
+            'Sorun sürerse kapı görevlisine veya İK birimine başvurun.',
           ]}
         />
         
         {/* Alt Butonlar */}
         <View style={styles.footer}>
           <Button
-            title="İK BİRİMİNE BAŞVUR"
-            onPress={handleHrContact}
+            title="TEKRAR DENE"
+            onPress={() => navigation.goBack()}
             variant="primary"
             style={styles.actionBtn}
           />
           <Button
-            title="GİRİŞ EKRANINA DÖN"
-            onPress={() => navigation.replace('Login')}
+            title="KAPI GÖREVLİSİNE BAŞVUR"
+            onPress={handleHrContact}
             variant="outline"
             style={styles.actionBtn}
           />
@@ -90,15 +90,17 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: '#FCA5A5', // açık kırmızı sınır
+    backgroundColor: '#FEE2E2', // açık kırmızı zemin
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
     marginTop: spacing.md,
   },
-  phoneIcon: {
+  alertIcon: {
     fontSize: 48,
+    fontFamily: typography.fontFamilyBold,
+    color: colors.danger,
   },
   title: {
     fontFamily: typography.fontFamilyBold,

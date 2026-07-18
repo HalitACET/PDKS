@@ -29,6 +29,7 @@ public class TransactionService {
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final FraudDetectionService fraudDetectionService;
 
     // ─── Son Harekete Göre Öneri ──────────────────────────────────────────────
 
@@ -69,10 +70,11 @@ public class TransactionService {
             throw new DeviceMismatchException();
         }
 
+        Optional<TransactionRecord> lastOpt = transactionRepository.findTopByUserOrderByTimestampDesc(user);
+
         // 2. Type boş ise otomatik belirleme
         TransactionType finalType = request.getType();
         if (finalType == null) {
-            Optional<TransactionRecord> lastOpt = transactionRepository.findTopByUserOrderByTimestampDesc(user);
             if (lastOpt.isPresent() && lastOpt.get().getType() == TransactionType.GIRIS) {
                 finalType = TransactionType.CIKIS;
             } else {
@@ -108,7 +110,8 @@ public class TransactionService {
                     .orElseThrow(InvalidQrException::new);
         }
 
-        // TODO: Faz 4 - Geofence ve anomali kontrolü eklenecek.
+        // 5. Geofence ve Anomali Kontrolü (Fraud Detection)
+        fraudDetectionService.validateTransaction(user, request, location, lastOpt.orElse(null));
 
         // Kayıt oluştur
         TransactionRecord record = TransactionRecord.builder()

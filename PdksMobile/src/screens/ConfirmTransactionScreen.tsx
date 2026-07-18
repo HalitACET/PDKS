@@ -7,12 +7,18 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {getToken} from '../services/auth';
 import {getOrCreateDeviceId} from '../services/device';
 import {getNextAction, logTransaction} from '../services/api';
+import {colors, typography, spacing, radius} from '../theme';
+import Card from '../components/Card';
+import SectionLabel from '../components/SectionLabel';
+import Button from '../components/Button';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConfirmTransaction'>;
 
@@ -99,6 +105,7 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
         qrContent,
         method,
         deviceId,
+        mockLocation: route.params.mockLocation ?? false,
       });
 
       // Başarılı ekranına yönlendir
@@ -113,6 +120,9 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
       if (error.isDeviceMismatch) {
         // Cihaz uyuşmazlığı ekranına yönlendir
         navigation.replace('DeviceMismatch');
+      } else if (error.isLocationSuspicious) {
+        // Anomali / Mock / Geofence hatası
+        navigation.replace('FakeLocation');
       } else if (error.isInvalidQr) {
         Alert.alert('Geçersiz İşlem', 'Okutulan QR kod bu firmaya ait değil veya geçersizdir.');
         navigation.goBack();
@@ -126,26 +136,43 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>İşlem detayları hazırlanıyor...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   const isGiris = type === 'GIRIS';
   const typeText = isGiris ? 'GİRİŞ' : 'ÇIKIŞ';
-  const colorTheme = isGiris ? '#3498db' : '#2ecc71';
+  const typeColor = isGiris ? colors.success : colors.primaryDark;
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <View style={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.titleLabel}>PLANLANAN HAREKET</Text>
-          <Text style={[styles.typeText, {color: colorTheme}]}>{typeText}</Text>
+      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      
+      {/* Özel Header */}
+      <View style={styles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          activeOpacity={0.7}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Geçiş onayı</Text>
+        <View style={styles.headerRightSpacer} />
+      </View>
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContainer}>
+        <Card style={styles.mainCard}>
+          <SectionLabel text="PLANLANAN HAREKET" />
+          <Text style={[styles.typeText, {color: typeColor}]}>{typeText}</Text>
           
-          <TouchableOpacity style={styles.toggleLink} onPress={handleToggleType}>
-            <Text style={[styles.toggleLinkText, {color: colorTheme}]}>
+          <TouchableOpacity
+            style={styles.toggleLink}
+            activeOpacity={0.7}
+            onPress={handleToggleType}>
+            <Text style={[styles.toggleLinkText, {color: typeColor}]}>
               {isGiris ? 'Çıkış Yapmak İstiyorum' : 'Giriş Yapmak İstiyorum'} (Değiştir)
             </Text>
           </TouchableOpacity>
@@ -155,40 +182,40 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
           <Text style={styles.timeText}>{currentTime}</Text>
           <Text style={styles.dateText}>{currentDate}</Text>
 
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Yöntem:</Text>
-            <Text style={styles.infoValue}>{method === 'QR' ? 'QR Kod Okuyucu' : 'GPS Konum Doğrulama'}</Text>
+          <View style={styles.grayBox}>
+            <Text style={styles.grayBoxLabel}>YÖNTEM</Text>
+            <Text style={styles.grayBoxValue}>
+              {method === 'QR' ? 'QR Kod Okuyucu' : 'GPS Konum Doğrulama'}
+            </Text>
             
-            <Text style={styles.infoLabel}>Koordinatlar:</Text>
-            <Text style={styles.infoValue}>
+            <Text style={styles.grayBoxLabel}>KOORDİNATLAR</Text>
+            <Text style={styles.grayBoxValue}>
               {latitude.toFixed(6)}, {longitude.toFixed(6)}
             </Text>
           </View>
-        </View>
+        </Card>
 
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.confirmButton, {backgroundColor: colorTheme}]}
-            disabled={submitting}
-            onPress={handleConfirm}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.confirmButtonText}>
-                {typeText === 'GİRİŞ' ? 'GİRİŞİ ONAYLA' : 'ÇIKIŞI ONAYLA'}
-              </Text>
-            )}
-          </TouchableOpacity>
+        <Text style={styles.footnote}>
+          Onayladığınızda {typeText.toLowerCase()} kaydınız oluşturulur.
+        </Text>
+      </ScrollView>
 
-          <TouchableOpacity
-            style={styles.cancelButton}
-            disabled={submitting}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.cancelButtonText}>İptal Et</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Alt Butonlar */}
+      <View style={styles.footer}>
+        <Button
+          title={type === 'GIRIS' ? 'GİRİŞİ ONAYLA' : 'ÇIKIŞI ONAYLA'}
+          onPress={handleConfirm}
+          variant="primary"
+          loading={submitting}
+          style={styles.actionBtn}
+        />
+        <Button
+          title="Vazgeç"
+          onPress={() => navigation.goBack()}
+          variant="outline"
+          disabled={submitting}
+          style={styles.actionBtn}
+        />
       </View>
     </SafeAreaView>
   );
@@ -197,122 +224,126 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'space-between',
+    backgroundColor: colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
+    padding: spacing.lg,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#7f8c8d',
+    marginTop: spacing.md,
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 15,
+    color: colors.textSecondary,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+  headerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    marginTop: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
   },
-  titleLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#bdc3c7',
-    letterSpacing: 1.5,
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArrow: {
+    fontSize: 24,
+    fontFamily: typography.fontFamilyBold,
+    color: colors.textPrimary,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 18,
+    color: colors.textPrimary,
+  },
+  headerRightSpacer: {
+    width: 44,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContainer: {
+    paddingHorizontal: spacing.md,
+  },
+  mainCard: {
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    padding: spacing.lg,
+    marginTop: spacing.sm,
   },
   typeText: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 48,
-    fontWeight: 'bold',
-    marginVertical: 12,
+    marginVertical: spacing.xs,
   },
   toggleLink: {
-    paddingVertical: 8,
+    paddingVertical: spacing.xs,
   },
   toggleLinkText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 13,
     textDecorationLine: 'underline',
   },
   divider: {
     height: 1,
-    backgroundColor: '#ecf0f1',
+    backgroundColor: colors.border,
     width: '100%',
-    marginVertical: 20,
+    marginVertical: spacing.lg,
   },
   timeText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 44,
+    color: colors.textPrimary,
   },
   dateText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    marginTop: 4,
-    marginBottom: 20,
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
-  infoBox: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 16,
+  grayBox: {
+    backgroundColor: '#F8F6F1', // krem zemine yakın ama karttan ayırt edilebilir
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
     width: '100%',
   },
-  infoLabel: {
-    fontSize: 12,
-    color: '#bdc3c7',
-    fontWeight: 'bold',
-    marginTop: 8,
-    textTransform: 'uppercase',
+  grayBoxLabel: {
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
-  infoValue: {
+  grayBoxValue: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 14,
-    color: '#34495e',
-    fontWeight: '500',
-    marginTop: 2,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
-  actions: {
-    gap: 12,
-    marginBottom: 16,
+  footnote: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
-  confirmButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+  footer: {
+    padding: spacing.md,
+    gap: spacing.sm,
   },
-  confirmButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  cancelButton: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#bdc3c7',
-  },
-  cancelButtonText: {
-    color: '#7f8c8d',
-    fontSize: 16,
-    fontWeight: 'bold',
+  actionBtn: {
+    width: '100%',
   },
 });

@@ -47,6 +47,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    /**
+     * 403 LOCATION_SUSPICIOUS
+     */
+    @ExceptionHandler(LocationSuspiciousException.class)
+    public ResponseEntity<Map<String, Object>> handleLocationSuspicious(LocationSuspiciousException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("errorCode", "LOCATION_SUSPICIOUS");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
     // ─── ResponseStatusException (401, 409, 404 vb.) ─────────────────────────
 
     /**

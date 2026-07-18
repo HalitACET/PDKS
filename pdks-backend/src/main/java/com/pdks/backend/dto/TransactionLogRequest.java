@@ -32,4 +32,6 @@ public class TransactionLogRequest {
 
     @NotBlank(message = "Cihaz ID zorunludur")
     private String deviceId;
+
+    private boolean mockLocation;
 }

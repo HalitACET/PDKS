@@ -6,11 +6,15 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Camera, useCameraDevice, useCodeScanner, useCameraPermission} from 'react-native-vision-camera';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {requestLocationPermission, getCurrentPosition} from '../services/location';
+import {checkLocationSecurity} from '../services/security';
+import {colors, typography, spacing, radius} from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QrScan'>;
 
@@ -19,6 +23,7 @@ export default function QrScanScreen({navigation}: Props) {
   const [locationStatus, setLocationStatus] = useState<'fetching' | 'success' | 'error'>('fetching');
   const [coordinates, setCoordinates] = useState<{latitude: number; longitude: number} | null>(null);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
+  const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
   
   const device = useCameraDevice('back');
   const scannedRef = useRef<boolean>(false);
@@ -32,7 +37,7 @@ export default function QrScanScreen({navigation}: Props) {
     })();
   }, [cameraPermission]);
 
-  // 2. Konum izni iste ve konumu al (TC03)
+  // 2. Konum izni iste ve konumu al
   useEffect(() => {
     let isMounted = true;
 
@@ -40,18 +45,47 @@ export default function QrScanScreen({navigation}: Props) {
       setLocationStatus('fetching');
       const hasPerm = await requestLocationPermission();
       if (!hasPerm) {
-        if (isMounted) setLocationStatus('error');
+        if (isMounted) {
+          setLocationStatus('error');
+        }
         return;
+      }
+
+      // 1. Statik güvenlik kontrolü
+      const staticSecurity = checkLocationSecurity();
+      if (staticSecurity.isMocked) {
+        if (isMounted) {
+          setIsCameraActive(false);
+          navigation.replace('FakeLocation');
+        }
+        return;
+      }
+      if (staticSecurity.isRooted) {
+        console.warn('Cihaz rootlu, güvenlik uyarısı (TODO: engelleme politikası eklenebilir)');
       }
 
       try {
         const pos = await getCurrentPosition();
+        
+        // 2. Dinamik güvenlik kontrolü
+        const dynamicSecurity = checkLocationSecurity(pos);
+        if (dynamicSecurity.isMocked || pos.mocked === true) {
+          if (isMounted) {
+            setIsCameraActive(false);
+            navigation.replace('FakeLocation');
+          }
+          return;
+        }
+
         if (isMounted) {
           setCoordinates(pos);
           setLocationStatus('success');
         }
-      } catch (err) {
-        if (isMounted) setLocationStatus('error');
+      } catch (err: any) {
+        console.log('[LOCATION] Konum hatası:', err?.message || err);
+        if (isMounted) {
+          setLocationStatus('error');
+        }
       }
     };
 
@@ -85,6 +119,7 @@ export default function QrScanScreen({navigation}: Props) {
       latitude: coordinates.latitude,
       longitude: coordinates.longitude,
       method: 'QR',
+      mockLocation: false, // isMocked ise zaten yönlendiriliyor, buraya geliyorsa false'tur.
     });
   };
 
@@ -97,69 +132,112 @@ export default function QrScanScreen({navigation}: Props) {
     },
   });
 
+  const getDotColor = () => {
+    if (locationStatus === 'fetching') return colors.primary;
+    if (locationStatus === 'success') return colors.success;
+    return colors.danger;
+  };
+
   if (cameraPermission === null) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+      <SafeAreaView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Kamera izni kontrol ediliyor...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (cameraPermission === false) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Kamera izni reddedildi. QR taramak için kamera izni vermeniz gerekir.</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Geri Dön</Text>
+      <SafeAreaView style={styles.centerContainer}>
+        <Text style={styles.errorText}>
+          Kamera izni reddedildi. QR taramak için ayarlardan kamera izni vermeniz gerekir.
+        </Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          activeOpacity={0.7}
+          onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>Geri Dön</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!device) {
     return (
-      <View style={styles.centerContainer}>
+      <SafeAreaView style={styles.centerContainer}>
         <Text style={styles.errorText}>Arka kamera bulunamadı.</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Geri Dön</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          activeOpacity={0.7}
+          onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>Geri Dön</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor="#000" barStyle="light-content" />
+      
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isCameraActive}
         codeScanner={codeScanner}
+        torch={isTorchOn ? 'on' : 'off'}
       />
 
+      {/* Koyu Üst Bar */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.circleBackButton}
+          activeOpacity={0.7}
+          onPress={() => navigation.goBack()}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>QR ile geçiş</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Tarama Katmanı */}
       <View style={styles.overlayContainer}>
-        <View style={styles.scannerFrame} />
-        
-        <View style={styles.statusBox}>
-          {locationStatus === 'fetching' && (
-            <View style={styles.statusRow}>
-              <ActivityIndicator size="small" color="#e67e22" style={{marginRight: 8}} />
-              <Text style={[styles.statusText, {color: '#e67e22'}]}>Konum alınıyor...</Text>
-            </View>
-          )}
-
-          {locationStatus === 'success' && (
-            <Text style={[styles.statusText, {color: '#2ecc71'}]}>✓ Konum doğrulandı</Text>
-          )}
-
-          {locationStatus === 'error' && (
-            <Text style={[styles.statusText, {color: '#e74c3c'}]}>✗ Konum alınamıyor (Tarama Engellendi)</Text>
-          )}
+        {/* Tarama Çerçevesi */}
+        <View style={styles.scannerFrame}>
+          {/* L Köşeler */}
+          <View style={[styles.corner, styles.topLeft]} />
+          <View style={[styles.corner, styles.topRight]} />
+          <View style={[styles.corner, styles.bottomLeft]} />
+          <View style={[styles.corner, styles.bottomRight]} />
         </View>
 
-        <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButtonText}>İptal Et</Text>
-        </TouchableOpacity>
+        {/* Hizalama Uyarısı */}
+        <Text style={styles.alignText}>Kodu çerçevenin içine hizalayın</Text>
+
+        <View style={styles.bottomSection}>
+          {/* Konum Doğrulama Durum Hapı */}
+          <View style={styles.statusPill}>
+            <Text style={[styles.statusDot, {color: getDotColor()}]}>●</Text>
+            <Text style={styles.statusText}>
+              {locationStatus === 'fetching' && ' Konumunuz arka planda doğrulanıyor'}
+              {locationStatus === 'success' && ' Konumunuz doğrulandı'}
+              {locationStatus === 'error' && ' Konum alınamıyor (Tarama engellendi)'}
+            </Text>
+          </View>
+
+          {/* Fener Butonu */}
+          {device.hasTorch && (
+            <TouchableOpacity
+              style={styles.torchButton}
+              activeOpacity={0.8}
+              onPress={() => setIsTorchOn(!isTorchOn)}>
+              <Text style={styles.torchButtonText}>
+                {isTorchOn ? 'FENERİ KAPAT' : 'FENERİ AÇ'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -174,70 +252,166 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    padding: spacing.lg,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#7f8c8d',
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
   },
   errorText: {
+    fontFamily: typography.fontFamilyMedium,
     fontSize: 16,
-    color: '#e74c3c',
+    color: colors.danger,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.lg,
+    lineHeight: 22,
   },
-  backButton: {
-    backgroundColor: '#3498db',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  backBtn: {
+    backgroundColor: colors.dark,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
   },
-  backButtonText: {
+  backBtnText: {
     color: '#fff',
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 14,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 64,
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  circleBackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArrow: {
+    color: '#fff',
+    fontSize: 20,
+    fontFamily: typography.fontFamilyBold,
+    marginTop: -2,
+  },
+  headerTitle: {
+    fontFamily: typography.fontFamilyBold,
     fontSize: 16,
-    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  headerSpacer: {
+    width: 36,
   },
   overlayContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingTop: 64, // Header yüksekliği kadar boşluk
   },
   scannerFrame: {
     width: 250,
     height: 250,
-    borderWidth: 2,
-    borderColor: '#3498db',
+    position: 'relative',
     backgroundColor: 'transparent',
-    borderRadius: 16,
-    marginTop: 100,
   },
-  statusBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+  corner: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: colors.primary,
+  },
+  topLeft: {
+    top: -2,
+    left: -2,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: radius.sm,
+  },
+  topRight: {
+    top: -2,
+    right: -2,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: radius.sm,
+  },
+  bottomLeft: {
+    bottom: -2,
+    left: -2,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: radius.sm,
+  },
+  bottomRight: {
+    bottom: -2,
+    right: -2,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: radius.sm,
+  },
+  alignText: {
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 13,
+    color: '#fff',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    marginTop: spacing.lg,
+    overflow: 'hidden',
+  },
+  bottomSection: {
+    position: 'absolute',
+    bottom: 32,
     alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
-  statusRow: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  statusDot: {
+    fontSize: 14,
+    marginRight: 4,
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 24,
-  },
-  cancelButtonText: {
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 12,
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  },
+  torchButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  torchButtonText: {
+    color: '#fff',
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 12,
+    letterSpacing: 1.2,
   },
 });

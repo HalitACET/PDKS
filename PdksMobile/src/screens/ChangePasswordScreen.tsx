@@ -8,11 +8,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {changePassword} from '../services/api';
-import {getToken} from '../services/auth';
+import {colors, typography, spacing, radius} from '../theme';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import SectionLabel from '../components/SectionLabel';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChangePassword'>;
 
@@ -24,11 +30,18 @@ export default function ChangePasswordScreen({navigation, route}: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<'old' | 'new' | 'confirm' | null>(null);
+
+  // Canlı Şifre Doğrulama Kuralları
+  const isRule1Ok = newPassword.length >= 8;
+  const isRule2Ok = /\d/.test(newPassword);
+  const isRule3Ok = newPassword !== oldPassword && oldPassword.length > 0 && newPassword.length > 0;
+  
+  const allRulesOk = isRule1Ok && isRule2Ok && isRule3Ok;
 
   const handleChangePassword = async () => {
     setErrorMessage('');
 
-    // Basit doğrulama
     if (!oldPassword || !newPassword || !confirmPassword) {
       setErrorMessage('Tüm alanları doldurunuz.');
       return;
@@ -37,12 +50,8 @@ export default function ChangePasswordScreen({navigation, route}: Props) {
       setErrorMessage('Yeni şifreler eşleşmiyor.');
       return;
     }
-    if (newPassword.length < 8) {
-      setErrorMessage('Yeni şifre en az 8 karakter olmalıdır.');
-      return;
-    }
-    if (!/\d/.test(newPassword)) {
-      setErrorMessage('Yeni şifre en az bir rakam içermelidir.');
+    if (!allRulesOk) {
+      setErrorMessage('Lütfen tüm şifre kurallarını karşılayın.');
       return;
     }
 
@@ -50,9 +59,6 @@ export default function ChangePasswordScreen({navigation, route}: Props) {
 
     try {
       await changePassword(oldPassword, newPassword, token);
-
-      // Şifre değişti — token hâlâ geçerli, Home'a yönlendir
-      // fullName'i bilmiyoruz ama token'dan alınamıyor; boş bırak, ileride çözülür
       navigation.replace('Home', {fullName: '', token});
     } catch (error: any) {
       setErrorMessage(error.message ?? 'Şifre değiştirilemedi.');
@@ -61,97 +67,237 @@ export default function ChangePasswordScreen({navigation, route}: Props) {
     }
   };
 
+  const renderRuleRow = (text: string, isMet: boolean) => {
+    return (
+      <View style={styles.ruleRow}>
+        <View style={[styles.ruleCircle, isMet && styles.ruleCircleActive]}>
+          {isMet && <Text style={styles.ruleCheck}>✓</Text>}
+        </View>
+        <Text style={[styles.ruleText, isMet && styles.ruleTextActive]}>
+          {text}
+        </Text>
+      </View>
+    );
+  };
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>Şifre Değiştir</Text>
-      <Text style={styles.subtitle}>
-        İlk girişinizde şifrenizi değiştirmeniz zorunludur.
-      </Text>
+    <SafeAreaView style={styles.safeContainer}>
+      <StatusBar backgroundColor={colors.dark} barStyle="light-content" />
+      
+      {/* Üst Antrasit Başlık Bloğu */}
+      <View style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>Yeni şifre belirleyin</Text>
+        <Text style={styles.headerSubtitle}>
+          İlk girişinizde güvenliğiniz için şifrenizi yenilemeniz gerekiyor.
+        </Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Mevcut Şifre"
-        value={oldPassword}
-        onChangeText={setOldPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Yeni Şifre (min. 8 karakter, en az 1 rakam)"
-        value={newPassword}
-        onChangeText={setNewPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Yeni Şifre Tekrar"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled">
+          
+          <View style={styles.form}>
+            {/* Mevcut Şifre */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>MEVCUT ŞİFRE</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'old' && styles.inputFocused,
+                ]}
+                placeholder="Mevcut Şifre"
+                placeholderTextColor={colors.textSecondary}
+                value={oldPassword}
+                onChangeText={setOldPassword}
+                secureTextEntry
+                onFocus={() => setFocusedField('old')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
 
-      {errorMessage !== '' && (
-        <Text style={styles.errorText}>{errorMessage}</Text>
-      )}
+            {/* Yeni Şifre */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>YENİ ŞİFRE</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'new' && styles.inputFocused,
+                ]}
+                placeholder="Yeni Şifre"
+                placeholderTextColor={colors.textSecondary}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                onFocus={() => setFocusedField('new')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleChangePassword}
-        disabled={isLoading}>
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>KAYDET</Text>
-        )}
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+            {/* Yeni Şifre Tekrar */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>YENİ ŞİFRE (TEKRAR)</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'confirm' && styles.inputFocused,
+                ]}
+                placeholder="Yeni Şifre Tekrar"
+                placeholderTextColor={colors.textSecondary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                onFocus={() => setFocusedField('confirm')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            {/* Şifre Kural Kartı */}
+            <Card style={styles.rulesCard}>
+              <SectionLabel text="ŞİFRE KURALLARI" />
+              <View style={styles.rulesList}>
+                {renderRuleRow('En az 8 karakter', isRule1Ok)}
+                {renderRuleRow('En az 1 rakam', isRule2Ok)}
+                {renderRuleRow('Eski şifrenizden farklı olmalı', isRule3Ok)}
+              </View>
+            </Card>
+
+            {errorMessage !== '' && (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            )}
+
+            <Button
+              title="ŞİFREYİ KAYDET"
+              onPress={handleChangePassword}
+              variant="primary"
+              loading={isLoading}
+              disabled={!allRulesOk || isLoading}
+              style={styles.saveBtn}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeContainer: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
+  headerBanner: {
+    backgroundColor: colors.dark,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg + 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.darkElevated,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 32,
-    textAlign: 'center',
+  headerTitle: {
+    fontFamily: typography.fontFamilyBold,
+    fontSize: 20,
+    color: colors.textOnDark,
+  },
+  headerSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.textOnDarkMuted,
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  form: {
+    width: '100%',
+  },
+  inputWrapper: {
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontFamily: typography.fontFamilyMedium,
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 1.2,
+    marginBottom: spacing.xs,
   },
   input: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 54,
+    fontSize: 15,
+    fontFamily: typography.fontFamilyMedium,
+    color: colors.textPrimary,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+  },
+  rulesCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  rulesList: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ruleCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  ruleCircleActive: {
+    borderColor: colors.success,
+    backgroundColor: colors.success,
+  },
+  ruleCheck: {
+    color: '#fff',
+    fontSize: 11,
+    fontFamily: typography.fontFamilyBold,
+  },
+  ruleText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  ruleTextActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamilyMedium,
   },
   errorText: {
-    color: 'red',
-    marginBottom: 12,
+    fontFamily: typography.fontFamilyBold,
+    color: colors.danger,
+    fontSize: 13,
     textAlign: 'center',
+    marginBottom: spacing.md,
   },
-  button: {
-    backgroundColor: '#333',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  saveBtn: {
+    width: '100%',
   },
 });
