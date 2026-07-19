@@ -3,7 +3,7 @@
 Mobil cihaz üzerinden QR kod ve GPS doğrulamasıyla personel giriş-çıkış takibi sağlayan, sahtecilik önleme ve çevrimdışı çalışma destekli tam yığın (full-stack) PDKS çözümü.
 
 > 🎓 Bu proje, Simple Software bünyesinde yürütülen zorunlu yaz stajı kapsamında geliştirilmiştir.
-> **Geliştirici:** Halit ACET · **Teslim:** 11.09.2026
+> **Geliştirici:** Halit ACET ·
 
 ---
 
