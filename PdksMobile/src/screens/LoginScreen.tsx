@@ -9,14 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  SafeAreaView,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
 import {login} from '../services/api';
-import {saveToken, saveFullName} from '../services/auth';
+import {saveToken, saveFullName, saveFirmId} from '../services/auth';
 import {
   getOrCreateDeviceId,
   getDeviceName,
@@ -58,6 +58,7 @@ export default function LoginScreen({navigation}: Props) {
 
       await saveToken(response.token);
       await saveFullName(response.fullName);
+      await saveFirmId(firmId.trim());
 
       setSession({
         fullName: response.fullName,

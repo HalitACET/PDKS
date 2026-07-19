@@ -5,12 +5,12 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   RefreshControl,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import {colors, typography, spacing, radius} from '../theme';
 import {getHistory, TransactionHistoryItem} from '../services/api';

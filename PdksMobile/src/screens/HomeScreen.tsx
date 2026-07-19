@@ -5,11 +5,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   RefreshControl,
   StatusBar,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
 import {getToken} from '../services/auth';
 import {getNextAction, NextActionResponse} from '../services/api';
@@ -267,7 +267,6 @@ export default function HomeScreen({navigation}: Props) {
         </View>
       )}
       <ScreenHeader
-        companyName="ATLAS METAL A.Ş."
         title={`Merhaba, ${fullName.split(' ')[0]}`}
         fullName={fullName}
       />

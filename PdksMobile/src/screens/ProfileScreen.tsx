@@ -4,26 +4,30 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Alert,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import ScreenHeader from '../components/ScreenHeader';
 import {colors, typography, spacing} from '../theme';
 import Card from '../components/Card';
 import SectionLabel from '../components/SectionLabel';
 import {removeToken} from '../services/auth';
 import {useSession, clearSession} from '../store/session';
+import {getDeviceName} from '../services/device';
 
 export default function ProfileScreen({navigation}: {navigation: any}) {
-  const {fullName, role, username} = useSession();
+  const {fullName, role, username, firmId} = useSession();
   const displayName = fullName || 'Personel';
+  const deviceName = getDeviceName();
 
   const subInfoParts = [
     username ? `@${username}` : null,
     role ? role : null,
   ].filter(Boolean);
-  const subInfoText = subInfoParts.length > 0 ? subInfoParts.join(' · ') : 'Atlas Metal A.Ş. Personeli';
+  
+  const displayFirm = firmId ? `${firmId.toUpperCase()} Personeli` : 'PDKS Personeli';
+  const subInfoText = subInfoParts.length > 0 ? subInfoParts.join(' · ') : displayFirm;
 
   const handleLogout = async () => {
     await removeToken();
@@ -53,6 +57,12 @@ export default function ProfileScreen({navigation}: {navigation: any}) {
             <SectionLabel text="KULLANICI BİLGİLERİ" />
             <Text style={styles.nameText}>{displayName}</Text>
             <Text style={styles.infoText}>{subInfoText}</Text>
+          </Card>
+
+          <SectionLabel text="CİHAZ BİLGİLERİ" style={styles.accountLabel} />
+          <Card style={styles.profileCard}>
+            <Text style={styles.nameText}>{deviceName}</Text>
+            <Text style={styles.infoText}>Bu cihaz hesabınızla güvenli şekilde eşleştirilmiştir.</Text>
           </Card>
 
           <SectionLabel text="HESAP" style={styles.accountLabel} />

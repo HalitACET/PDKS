@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, View, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {getToken, getFullName} from '../services/auth';
+import {getToken, getFullName, getFirmId} from '../services/auth';
 import {getNextAction} from '../services/api';
 import {setSession} from '../store/session';
 import LoginScreen from '../screens/LoginScreen';
@@ -59,9 +59,13 @@ export default function AppNavigator() {
           return;
         }
 
-        // Keychain'deki kalıcı ad soyad bilgisiyle in-memory session'ı doldur
+        // Keychain'deki kalıcı ad soyad ve firma bilgisiyle in-memory session'ı doldur
         const storedName = await getFullName();
-        setSession({fullName: storedName});
+        const storedFirmId = await getFirmId();
+        setSession({
+          fullName: storedName,
+          firmId: storedFirmId,
+        });
 
         try {
           // next-action çağrısı hem "sıradaki işlem" verisini hem de

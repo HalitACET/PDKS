@@ -41,8 +41,15 @@ export async function getOrCreateDeviceId(): Promise<string> {
  * Marka + Model birleştirir. Örn: "TECNO CM7"
  */
 export function getDeviceName(): string {
-  const brand = DeviceInfo.getBrand();
-  const model = DeviceInfo.getModel();
+  const brand = DeviceInfo.getBrand().trim();
+  const model = DeviceInfo.getModel().trim();
+  
+  const bUpper = brand.toUpperCase();
+  const mUpper = model.toUpperCase();
+  
+  if (mUpper.startsWith(bUpper)) {
+    return model;
+  }
   return `${brand} ${model}`;
 }
 

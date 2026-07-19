@@ -2,6 +2,8 @@ import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {colors, spacing, typography, radius} from '../theme';
 
+import {useSession} from '../store/session';
+
 interface ScreenHeaderProps {
   title: string;
   companyName?: string;
@@ -10,9 +12,12 @@ interface ScreenHeaderProps {
 
 export default function ScreenHeader({
   title,
-  companyName = 'KOCAOĞLU YAPI', // Örnek varsayılan firma adı
+  companyName,
   fullName,
 }: ScreenHeaderProps) {
+  const session = useSession();
+  const displayCompany = companyName || session.firmId || 'PDKS';
+
   // Baş harfleri al
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -26,7 +31,7 @@ export default function ScreenHeader({
   return (
     <View style={styles.container}>
       <View style={styles.leftContainer}>
-        <Text style={styles.companyText}>{companyName.toUpperCase()}</Text>
+        <Text style={styles.companyText}>{displayCompany.toUpperCase()}</Text>
         <Text style={styles.titleText}>{title}</Text>
       </View>
       <View style={styles.avatarContainer}>

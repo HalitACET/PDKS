@@ -3,6 +3,7 @@ import * as Keychain from 'react-native-keychain';
 // Keychain'de kullanılacak sabit servis adı
 const SERVICE_NAME = 'pdks_auth_token';
 const USER_INFO_SERVICE = 'pdks_user_info';
+const FIRM_ID_SERVICE = 'pdks_firm_id';
 
 /**
  * JWT token'ı güvenli keychain'e yazar.
@@ -51,9 +52,32 @@ export async function getFullName(): Promise<string | null> {
 }
 
 /**
+ * Kullanıcı firma ID bilgisini güvenli keychain'e kaydeder.
+ */
+export async function saveFirmId(firmId: string): Promise<void> {
+  await Keychain.setGenericPassword('firmId', firmId, {
+    service: FIRM_ID_SERVICE,
+  });
+}
+
+/**
+ * Keychain'den firma ID bilgisini okur.
+ */
+export async function getFirmId(): Promise<string | null> {
+  const credentials = await Keychain.getGenericPassword({
+    service: FIRM_ID_SERVICE,
+  });
+  if (credentials) {
+    return credentials.password;
+  }
+  return null;
+}
+
+/**
  * Keychain'den JWT token'ı ve kullanıcı bilgilerini siler (çıkış yapma).
  */
 export async function removeToken(): Promise<void> {
   await Keychain.resetGenericPassword({service: SERVICE_NAME});
   await Keychain.resetGenericPassword({service: USER_INFO_SERVICE});
+  await Keychain.resetGenericPassword({service: FIRM_ID_SERVICE});
 }
