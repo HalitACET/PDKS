@@ -108,7 +108,11 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
 
   const handleOfflineSave = async () => {
     try {
-      const timestamp = new Date().toISOString();
+      const toLocalISOString = (date: Date) => {
+        const pad = (num: number) => String(num).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+      };
+      const timestamp = toLocalISOString(new Date());
       await addToQueue({
         type,
         timestamp,
@@ -184,7 +188,7 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
         locationName: response.locationName,
       });
     } catch (error: any) {
-      console.error('Transaction log failed:', error);
+      console.warn('Transaction log failed:', error.message || error);
 
       if (error.isDeviceMismatch) {
         // Cihaz uyuşmazlığı ekranına yönlendir

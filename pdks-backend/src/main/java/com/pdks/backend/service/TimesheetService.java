@@ -1,6 +1,7 @@
 package com.pdks.backend.service;
 
 import com.pdks.backend.dto.admin.TimesheetResponse;
+import com.pdks.backend.dto.TimesheetSummaryResponse;
 import com.pdks.backend.entity.Shift;
 import com.pdks.backend.entity.TransactionRecord;
 import com.pdks.backend.entity.TransactionType;
@@ -265,7 +266,9 @@ public class TimesheetService {
             if (pairCount > 0 && !isWeekend) {
                 int breakMin = (shift != null) ? shift.getBreakMinutes() : 0;
                 int before = workedMinutes;
-                workedMinutes = Math.max(0, workedMinutes - breakMin);
+                if (workedMinutes >= 240) {
+                    workedMinutes = Math.max(240, workedMinutes - breakMin);
+                }
                 log.debug("[TIMESHEET]   BREAK deducted={}min ({} → {}min)", breakMin, before, workedMinutes);
             } else if (pairCount > 0 && isWeekend) {
                 log.debug("[TIMESHEET]   BREAK skipped (weekend) workedMinutes={}min", workedMinutes);
@@ -395,5 +398,25 @@ public class TimesheetService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "Kullanıcı bulunamadı."));
+    }
+
+    public TimesheetSummaryResponse getMyTimesheetSummary(String authHeader) {
+        User user = getUserFromToken(authHeader);
+        ZoneId turkeyZone = ZoneId.of("Europe/Istanbul");
+        LocalDate today = LocalDate.now(turkeyZone);
+        int year = today.getYear();
+        int month = today.getMonthValue();
+
+        TimesheetResponse fullTs = calculateTimesheet(user, year, month);
+
+        return TimesheetSummaryResponse.builder()
+                .month(month)
+                .year(year)
+                .workedMinutes(fullTs.getTotals().getWorkedMinutes())
+                .expectedMinutes(fullTs.getTotals().getExpectedMinutes())
+                .lateDays(fullTs.getTotals().getLateDays())
+                .incompleteDays(fullTs.getTotals().getIncompleteDays())
+                .shiftName(fullTs.getShiftName())
+                .build();
     }
 }

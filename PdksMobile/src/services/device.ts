@@ -74,3 +74,27 @@ export async function registerDevice(token: string): Promise<void> {
     },
   );
 }
+
+export interface DeviceVerifyResponse {
+  bound: boolean;
+  deviceName: string;
+  registeredAt: string;
+}
+
+/**
+ * GET /device/verify
+ * Backend'e X-Device-Id header'ı ile istek atarak eşleşme ve detay bilgilerini alır.
+ */
+export async function verifyDevice(token: string): Promise<DeviceVerifyResponse> {
+  const deviceId = await getOrCreateDeviceId();
+  const response = await axios.get<DeviceVerifyResponse>(
+    `${API_BASE_URL}/device/verify`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-Device-Id': deviceId,
+      },
+    },
+  );
+  return response.data;
+}

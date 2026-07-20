@@ -259,3 +259,36 @@ export async function syncTransactions(
     throw new Error(message);
   }
 }
+
+export interface TimesheetSummaryResponse {
+  month: number;
+  year: number;
+  workedMinutes: number;
+  expectedMinutes: number;
+  lateDays: number;
+  incompleteDays: number;
+  shiftName: string | null;
+}
+
+/**
+ * GET /me/timesheet-summary
+ * Oturumu açık kullanıcının bu ayki puantaj özetini alır.
+ */
+export async function getMyTimesheetSummary(token: string): Promise<TimesheetSummaryResponse> {
+  try {
+    const response = await api.get<TimesheetSummaryResponse>('/me/timesheet-summary', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const authError = new Error('Oturum süresi dolmuş veya geçersiz.') as any;
+      authError.isUnauthorized = true;
+      throw authError;
+    }
+    const message = error.response?.data?.message ?? 'Puantaj özeti alınamadı.';
+    throw new Error(message);
+  }
+}

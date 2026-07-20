@@ -223,7 +223,7 @@ export default function HistoryScreen() {
       ) : (
         <FlatList
           data={history}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => item.id?.toString() || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.listContainer}
           onEndReached={handleLoadMore}
