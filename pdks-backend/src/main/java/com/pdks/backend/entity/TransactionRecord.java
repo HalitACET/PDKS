@@ -50,7 +50,18 @@ public class TransactionRecord {
     @Column(nullable = false)
     private TransactionMethod method;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean manual = false;
+
+    @Column(name = "manual_note", length = 500)
+    private String manualNote;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public boolean isManual() {
+        return manual != null && manual;
+    }
 }

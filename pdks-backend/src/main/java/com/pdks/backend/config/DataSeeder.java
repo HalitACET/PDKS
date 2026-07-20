@@ -3,13 +3,17 @@ package com.pdks.backend.config;
 import com.pdks.backend.entity.Location;
 import com.pdks.backend.entity.Role;
 import com.pdks.backend.entity.User;
+import com.pdks.backend.entity.Shift;
 import com.pdks.backend.repository.LocationRepository;
 import com.pdks.backend.repository.UserRepository;
+import com.pdks.backend.repository.ShiftRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalTime;
 
 /**
  * Uygulama ayağa kalkarken çalışır.
@@ -24,12 +28,46 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final LocationRepository locationRepository;
+    private final ShiftRepository shiftRepository;
 
     @Override
     public void run(String... args) {
         seedEmployee();
         seedAdmin();
         seedLocations();
+        seedShifts();
+    }
+
+    /** Vardiya seed verisi */
+    private void seedShifts() {
+        Shift gündüz = shiftRepository.findByFirmId("ATLAS01").stream()
+                .filter(s -> s.getName().equalsIgnoreCase("Gündüz"))
+                .findFirst()
+                .orElse(null);
+
+        if (gündüz == null) {
+            gündüz = Shift.builder()
+                    .firmId("ATLAS01")
+                    .name("Gündüz")
+                    .startTime(LocalTime.of(8, 0))
+                    .endTime(LocalTime.of(17, 0))
+                    .breakMinutes(60)
+                    .lateToleranceMinutes(10)
+                    .active(true)
+                    .build();
+            gündüz = shiftRepository.save(gündüz);
+            log.info("Shift seed: Gündüz");
+        }
+
+        final Shift finalGündüz = gündüz;
+        userRepository.findByUsernameAndFirmId("mehmet.yilmaz", "ATLAS01")
+                .ifPresent(u -> {
+                    if (u.getShift() == null) {
+                        u.setShift(finalGündüz);
+                        userRepository.save(u);
+                        log.info("Assigned Gündüz shift to mehmet.yilmaz");
+                    }
+                });
     }
 
     /** EMPLOYEE test kullanıcısı — yoksa oluştur */

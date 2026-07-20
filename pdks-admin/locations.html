@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lokasyon Yönetimi - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRCode JS library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Print media styling to print only the QR modal */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #qr-print-container, #qr-print-container * {
+                visibility: visible;
+            }
+            #qr-print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                display: flex !important;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: white;
+            }
+            /* Remove standard page margins and headers/footers */
+            @page {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h2 class="text-2xl font-bold text-dark">Lokasyon Yönetimi</h2>
+                    <button class="bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm px-4 py-2.5 rounded-lg transition-colors shadow-sm" 
+                            id="open-modal-btn">
+                        + YENİ LOKASYON
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm mb-6 flex items-center">
+                    <div class="w-full max-w-sm">
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="text" id="location-search" placeholder="Lokasyon adıyla veya koduyla ara...">
+                    </div>
+                </div>
+
+                <!-- Locations Grid -->
+                <div id="locations-loading" class="text-center py-20">
+                    <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p class="text-[#7A7872] text-xs">Lokasyonlar yükleniyor...</p>
+                </div>
+                <div id="locations-empty" class="hidden text-center py-20">
+                    <p class="text-[#7A7872] text-sm">Tanımlanmış geofence lokasyonu bulunamadı.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="locations-grid">
+                    <!-- Dynamic cards loaded here -->
+                </div>
+
+                <!-- Footer Total Count -->
+                <div id="locations-count-container" class="mt-6 text-xs text-[#7A7872] font-semibold">0 lokasyon</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Location Modal -->
+    <div id="create-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Yeni Lokasyon Ekle</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-modal-btn">&times;</button>
+            </div>
+
+            <form id="create-location-form" class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="locCode">Lokasyon Kodu</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="locCode" required placeholder="Örn: ANAKAPI">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="locName">Lokasyon Adı</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="locName" required placeholder="Örn: Ana Giriş Kapısı">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="locLat">Enlem (Latitude)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" step="any" id="locLat" required placeholder="40.8021">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="locLon">Boylam (Longitude)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" step="any" id="locLon" required placeholder="29.4312">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="locRadius">Yarıçap (Metre)</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="number" id="locRadius" required placeholder="150" value="150">
+                </div>
+
+                <div id="modal-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-modal-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-location-btn">
+                        <span>Kaydet</span>
+                        <span id="save-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Location Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Lokasyonu Düzenle</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-edit-modal-btn">&times;</button>
+            </div>
+
+            <form id="edit-location-form" class="space-y-4">
+                <input type="hidden" id="editLocId">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLocCode">Lokasyon Kodu</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="editLocCode" required placeholder="Örn: ANAKAPI">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLocName">Lokasyon Adı</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="editLocName" required placeholder="Örn: Ana Giriş Kapısı">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLocLat">Enlem (Latitude)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" step="any" id="editLocLat" required placeholder="40.8021">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLocLon">Boylam (Longitude)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" step="any" id="editLocLon" required placeholder="29.4312">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLocRadius">Yarıçap (Metre)</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="number" id="editLocRadius" required placeholder="150" value="150">
+                </div>
+
+                <div id="edit-modal-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-edit-modal-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="edit-save-location-btn">
+                        <span>Kaydet</span>
+                        <span id="edit-save-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code Display Modal -->
+    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-sm bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6 flex flex-col items-center relative">
+            <button class="absolute top-4 right-4 text-[#7A7872] hover:text-dark text-xl font-bold cursor-pointer" id="close-qr-btn">&times;</button>
+            
+            <!-- Print wrapper container -->
+            <div id="qr-print-container" class="flex flex-col items-center p-4">
+                <h3 class="font-bold text-lg text-dark mb-1 text-center" id="qr-title">Lokasyon QR Kodu</h3>
+                <p class="text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-5 text-center" id="qr-code-text">ANAKAPI</p>
+                
+                <!-- QR Code Box -->
+                <div class="bg-white p-4 border border-[#E0DDD5] rounded-lg shadow-sm mb-5" id="qrcode-box"></div>
+                
+                <p class="text-xs text-[#7A7872] text-center font-medium max-w-[240px]">Mobil uygulama ile bu QR kodu okutarak giriş-çıkış işlemi yapabilirsiniz.</p>
+            </div>
+
+            <!-- Print Actions -->
+            <div class="flex gap-3 w-full border-t border-[#E0DDD5] pt-4 mt-2">
+                <button class="flex-1 px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                        id="close-qr-bottom-btn">Kapat</button>
+                <button class="flex-1 px-4 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center justify-center gap-2" 
+                        id="print-qr-btn">
+                    <span>🖨️ Yazdır</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=3"></script>
+    <script src="js/layout.js?v=3"></script>
+    <script src="js/lokasyonlar.js?v=3"></script>
+</body>
+</html>

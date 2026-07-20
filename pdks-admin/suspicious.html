@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Şüpheli Denemeler - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <h2 class="text-2xl font-bold text-dark mb-6">Şüpheli Denemeler</h2>
+
+                <!-- Warning Info Banner -->
+                <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 mb-6">
+                    <span class="text-xl">⚠️</span>
+                    <p class="text-xs sm:text-sm font-semibold text-danger">Bu liste, sistem tarafından reddedilen şüpheli geçiş denemelerini gösterir.</p>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm mb-6 flex items-center">
+                    <div class="w-full max-w-sm">
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="text" id="suspicious-search" placeholder="Personel adıyla veya kullanıcı adıyla ara...">
+                    </div>
+                </div>
+
+                <!-- Table Area -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-6 shadow-sm">
+                    <div class="admin-table-container">
+                        <table class="admin-table w-full">
+                            <thead>
+                                <tr>
+                                    <th class="w-1/6">Tarih+Saat</th>
+                                    <th class="w-1/4">Personel</th>
+                                    <th class="w-1/4">Sebep</th>
+                                    <th class="w-1/6">Koordinat</th>
+                                    <th class="w-1/6">Cihaz ID</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attempts-tbody">
+                                <!-- Dynamic rows loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading / Empty states -->
+                    <div id="attempts-loading" class="text-center py-10">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-[#7A7872] text-xs">Şüpheli denemeler yükleniyor...</p>
+                    </div>
+                    <div id="attempts-empty" class="hidden text-center py-10">
+                        <p class="text-[#7A7872] text-sm">Şüpheli deneme kaydı bulunamadı.</p>
+                    </div>
+
+                    <!-- Pagination Controls -->
+                    <div class="flex items-center justify-between border-t border-[#E0DDD5] pt-5 mt-5" id="pagination-controls">
+                        <button class="px-4 py-2 border border-[#E0DDD5] text-dark font-semibold text-xs rounded-lg transition-colors hover:bg-bg disabled:opacity-40 disabled:hover:bg-transparent" 
+                                id="prev-page-btn" disabled>
+                            ◄ Önceki
+                        </button>
+                        <div class="flex flex-col items-center gap-1">
+                            <span class="text-xs font-bold text-dark" id="page-info">Sayfa 1 / 1</span>
+                            <span class="text-[10px] font-semibold text-[#7A7872]" id="suspicious-count"></span>
+                        </div>
+                        <button class="px-4 py-2 border border-[#E0DDD5] text-dark font-semibold text-xs rounded-lg transition-colors hover:bg-bg disabled:opacity-40 disabled:hover:bg-transparent" 
+                                id="next-page-btn" disabled>
+                            Sonraki ►
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=3"></script>
+    <script src="js/layout.js?v=3"></script>
+    <script src="js/supheli.js?v=3"></script>
+</body>
+</html>

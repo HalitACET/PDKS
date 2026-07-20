@@ -14,6 +14,18 @@ public class NextActionResponse {
 
     private TransactionType suggestedType;
     private LastTransactionInfo lastTransaction;
+    private ShiftInfo shift;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ShiftInfo {
+        private String name;
+        private String startTime;
+        private String endTime;
+    }
 
     @Getter
     @Setter

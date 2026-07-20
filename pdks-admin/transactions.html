@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geçiş Kayıtları - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <h2 class="text-2xl font-bold text-dark mb-6">Geçiş Kayıtları</h2>
+
+                <!-- Filters -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-5 shadow-sm mb-6">
+                    <form id="filter-form" class="flex flex-wrap items-end gap-4">
+                        <div class="w-full sm:w-64">
+                            <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Personel Arama</label>
+                            <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                                   type="text" id="filter-username" placeholder="Kullanıcı adı ara...">
+                        </div>
+
+                        <div class="w-full sm:w-44">
+                            <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Başlangıç Tarihi</label>
+                            <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-1.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                                   type="date" id="filter-start-date">
+                        </div>
+
+                        <div class="w-full sm:w-44">
+                            <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Bitiş Tarihi</label>
+                            <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-1.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                                   type="date" id="filter-end-date">
+                        </div>
+
+                        <div class="flex items-center gap-4 h-[38px] pt-1">
+                            <button class="bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm px-6 h-full rounded-lg transition-colors shadow-sm" 
+                                    type="submit">
+                                FİLTRELE
+                            </button>
+                            <button class="bg-[#2E9E5B] hover:bg-[#25814A] text-white font-bold text-sm px-6 h-full rounded-lg transition-colors shadow-sm" 
+                                    type="button" id="export-excel-btn">
+                                📊 EXCEL'E AKTAR
+                            </button>
+                            <a class="text-xs text-[#7A7872] hover:text-dark font-semibold cursor-pointer underline decoration-dotted" 
+                               id="clear-filters-btn">Temizle</a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Table Area -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-6 shadow-sm">
+                    <div class="admin-table-container">
+                        <table class="admin-table w-full">
+                            <thead>
+                                <tr>
+                                    <th class="w-1/6">Tarih+Saat</th>
+                                    <th class="w-1/4">Personel</th>
+                                    <th class="w-1/6">Tip</th>
+                                    <th class="w-1/4">Lokasyon</th>
+                                    <th class="w-1/6">Yöntem</th>
+                                    <th class="w-16 text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactions-tbody">
+                                <!-- Dynamic rows loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading / Empty states -->
+                    <div id="transactions-loading" class="text-center py-10">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-[#7A7872] text-xs">Kayıtlar yükleniyor...</p>
+                    </div>
+                    <div id="transactions-empty" class="hidden text-center py-10">
+                        <p class="text-[#7A7872] text-sm">Geçiş kaydı bulunamadı.</p>
+                    </div>
+
+                    <!-- Pagination Controls -->
+                    <div class="flex items-center justify-between border-t border-[#E0DDD5] pt-5 mt-5" id="pagination-controls">
+                        <button class="px-4 py-2 border border-[#E0DDD5] text-dark font-semibold text-xs rounded-lg transition-colors hover:bg-bg disabled:opacity-40 disabled:hover:bg-transparent" 
+                                id="prev-page-btn" disabled>
+                            ◄ Önceki
+                        </button>
+                        <div class="flex flex-col items-center gap-1">
+                            <span class="text-xs font-bold text-dark" id="page-info">Sayfa 1 / 1</span>
+                            <span class="text-[10px] font-semibold text-[#7A7872]" id="transactions-count"></span>
+                        </div>
+                        <button class="px-4 py-2 border border-[#E0DDD5] text-dark font-semibold text-xs rounded-lg transition-colors hover:bg-bg disabled:opacity-40 disabled:hover:bg-transparent" 
+                                id="next-page-btn" disabled>
+                            Sonraki ►
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Geçiş Kaydını Sil</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-delete-btn" type="button">&times;</button>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm text-danger font-semibold bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
+                    ⚠️ Bu kayıt kalıcı olarak silinecek ve işlem denetim loguna yazılacaktır.
+                </p>
+                <div id="delete-target-info" class="text-xs text-[#7A7872] font-mono bg-bg rounded-lg p-2.5">
+                    <!-- Target transaction details -->
+                </div>
+            </div>
+
+            <form id="delete-form" class="space-y-4">
+                <input type="hidden" id="deleteTxId">
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="deleteReason">Silme Gerekçesi (En az 5 karakter)</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-danger transition-colors" 
+                           type="text" id="deleteReason" placeholder="Test verisi temizliği" required minlength="5">
+                </div>
+
+                <div id="delete-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-delete-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-danger hover:bg-red-700 text-white font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="confirm-delete-btn">
+                        <span>SİL</span>
+                        <span id="delete-spinner" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=4"></script>
+    <script src="js/layout.js?v=4"></script>
+    <script src="js/gecisler.js?v=4"></script>
+</body>
+</html>

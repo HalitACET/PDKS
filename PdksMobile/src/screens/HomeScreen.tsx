@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useIsFocused} from '@react-navigation/native';
-import {getToken} from '../services/auth';
+import {getToken, removeToken} from '../services/auth';
 import {getNextAction, NextActionResponse} from '../services/api';
-import {useSession} from '../store/session';
+import {useSession, clearSession} from '../store/session';
 import {colors, typography, spacing, radius} from '../theme';
 import ScreenHeader from '../components/ScreenHeader';
 import Card from '../components/Card';
@@ -105,9 +105,10 @@ export default function HomeScreen({navigation}: Props) {
         };
       }
 
-      const computedState = {
+      const computedState: NextActionResponse = {
         suggestedType: currentSuggested,
         lastTransaction: lastTx,
+        shift: baseState.shift,
       };
 
       setNextAction(computedState);
@@ -140,6 +141,12 @@ export default function HomeScreen({navigation}: Props) {
     } catch (err: any) {
       if (err.isDeviceMismatch) {
         navigation.replace('DeviceMismatch');
+        return;
+      }
+      if (err.isUnauthorized) {
+        await removeToken();
+        clearSession();
+        navigation.replace('Login');
         return;
       }
       console.warn('Failed to load home data:', err);
@@ -316,8 +323,14 @@ export default function HomeScreen({navigation}: Props) {
         <View style={styles.bottomRow}>
           <Card style={styles.bottomCard}>
             <SectionLabel text="Vardiya" />
-            <Text style={styles.bottomCardValue}>08:00 – 17:00</Text>
-            <Text style={styles.bottomCardSub}>Gündüz vardiyası</Text>
+            <Text style={styles.bottomCardValue}>
+              {nextAction?.shift 
+                ? `${nextAction.shift.startTime} – ${nextAction.shift.endTime}` 
+                : 'Vardiya atanmadı'}
+            </Text>
+            {nextAction?.shift ? (
+              <Text style={styles.bottomCardSub}>{nextAction.shift.name} vardiyası</Text>
+            ) : null}
           </Card>
           
           <Card style={styles.bottomCard}>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puantaj Raporu - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h2 class="text-2xl font-bold text-dark">Personel Puantaj Raporu</h2>
+                </div>
+
+                <!-- Filters & Export -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center gap-4 flex-1">
+                        <div class="w-full md:w-56">
+                            <label class="block text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Personel</label>
+                            <select id="userSelect" class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-3 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors">
+                                <option value="">— Personel Seçin —</option>
+                            </select>
+                        </div>
+                        <div class="w-24">
+                            <label class="block text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Yıl</label>
+                            <select id="yearSelect" class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-3 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors">
+                                <option value="2026">2026</option>
+                                <option value="2025">2025</option>
+                            </select>
+                        </div>
+                        <div class="w-32">
+                            <label class="block text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Ay</label>
+                            <select id="monthSelect" class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-3 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors">
+                                <option value="1">Ocak</option>
+                                <option value="2">Şubat</option>
+                                <option value="3">Mart</option>
+                                <option value="4">Nisan</option>
+                                <option value="5">Mayıs</option>
+                                <option value="6">Haziran</option>
+                                <option value="7">Temmuz</option>
+                                <option value="8">Ağustos</option>
+                                <option value="9">Eylül</option>
+                                <option value="10">Ekim</option>
+                                <option value="11">Kasım</option>
+                                <option value="12">Aralık</option>
+                            </select>
+                        </div>
+                        <div class="pt-4">
+                            <button id="fetch-btn" class="bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm px-5 py-2 rounded-lg transition-colors shadow-sm h-[38px] flex items-center gap-2">
+                                <span>GETİR</span>
+                                <span id="fetch-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="pt-4 md:pt-0 self-end md:self-auto">
+                        <button id="export-btn" disabled class="bg-[#2E9E5B] hover:bg-[#25814A] disabled:opacity-50 text-white font-bold text-sm px-5 py-2 rounded-lg transition-colors shadow-sm h-[38px] flex items-center gap-2">
+                            <span>EXCEL'E AKTAR</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary Panel -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm">
+                        <div class="text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Toplam Çalışılan</div>
+                        <div id="stat-worked" class="text-xl font-bold text-dark">—</div>
+                    </div>
+                    <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm">
+                        <div class="text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Beklenen Süre</div>
+                        <div id="stat-expected" class="text-xl font-bold text-dark">—</div>
+                    </div>
+                    <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm">
+                        <div class="text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Mesai Farkı</div>
+                        <div id="stat-difference" class="text-xl font-bold text-dark">—</div>
+                    </div>
+                    <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm">
+                        <div class="text-[10px] font-bold text-[#7A7872] uppercase tracking-wider mb-1">Geç Kalınan Gün</div>
+                        <div id="stat-late" class="text-xl font-bold text-dark">—</div>
+                    </div>
+                </div>
+
+                <!-- Puantaj Table -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-6 shadow-sm">
+                    <div class="admin-table-container">
+                        <table class="admin-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Gün</th>
+                                    <th>İlk Giriş</th>
+                                    <th>Son Çıkış</th>
+                                    <th>Çalışılan</th>
+                                    <th>Beklenen</th>
+                                    <th>Fark</th>
+                                    <th>Durum</th>
+                                    <th class="w-20 text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timesheet-tbody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loader / Info States -->
+                    <div id="timesheet-info" class="text-center py-20">
+                        <p class="text-[#7A7872] text-sm">Puantaj cetvelini görüntülemek için lütfen bir personel seçip GETİR butonuna tıklayın.</p>
+                    </div>
+                    <div id="timesheet-loading" class="hidden text-center py-20">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-[#7A7872] text-xs">Puantaj verileri hesaplanıyor...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Manual Correction Modal -->
+    <div id="correction-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark" id="correction-modal-title">Kayıt Ekle / Düzelt</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-correction-btn">&times;</button>
+            </div>
+
+            <form id="correction-form" class="space-y-4">
+                <input type="hidden" id="correctionUserId">
+                <input type="hidden" id="correctionDate">
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="corrType">Hareket Tipi</label>
+                    <select id="corrType" class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors">
+                        <option value="CIKIS">✅ Çıkış Kaydı Ekle</option>
+                        <option value="GIRIS">🟡 Giriş Kaydı Ekle</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="corrTimestamp">Tarih - Saat</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="datetime-local" id="corrTimestamp" required>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="corrNote">Düzeltme Açıklaması (En az 5 karakter)</label>
+                    <textarea id="corrNote" required minlength="5" rows="3" 
+                              placeholder="Örn: Personel çıkış okutmayı unutmuş, mesai amiri teyidiyle eklendi." 
+                              class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors resize-none"></textarea>
+                </div>
+
+                <div id="correction-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-correction-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-correction-btn">
+                        <span>Kaydet</span>
+                        <span id="correction-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=4"></script>
+    <script src="js/layout.js?v=4"></script>
+    <script src="js/puantaj.js?v=4"></script>
+</body>
+</html>

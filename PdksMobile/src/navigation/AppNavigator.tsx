@@ -75,6 +75,8 @@ export default function AppNavigator() {
         } catch (err: any) {
           if (err.isDeviceMismatch) {
             setInitialRoute('DeviceMismatch');
+          } else if (err.isUnauthorized) {
+            setInitialRoute('Login');
           } else {
             // Ağ hatası vb. — mevcut davranışı koru, Home ekranı kendi hata durumunu yönetir
             setInitialRoute('Home');

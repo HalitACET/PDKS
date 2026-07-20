@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cihaz Eşleştirmeleri - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <h2 class="text-2xl font-bold text-dark mb-6">Cihaz Eşleştirmeleri</h2>
+
+                <!-- Filters -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm mb-6 flex items-center">
+                    <div class="w-full max-w-sm">
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="text" id="device-search" placeholder="Personel adıyla veya cihaz adıyla ara...">
+                    </div>
+                </div>
+
+                <!-- Table Area -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-6 shadow-sm">
+                    <div class="admin-table-container">
+                        <table class="admin-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>Personel</th>
+                                    <th>Cihaz Adı</th>
+                                    <th>Cihaz ID</th>
+                                    <th>Kayıt Tarihi</th>
+                                    <th class="w-24 text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-tbody">
+                                <!-- Dynamic rows loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading / Empty states -->
+                    <div id="devices-loading" class="text-center py-10">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-[#7A7872] text-xs">Cihaz listesi yükleniyor...</p>
+                    </div>
+                    <div id="devices-empty" class="hidden text-center py-10">
+                        <p class="text-[#7A7872] text-sm">Kayıtlı cihaz eşleştirmesi bulunamadı.</p>
+                    </div>
+                    <!-- Total Count Footer -->
+                    <div id="devices-count" class="mt-4 text-xs text-[#7A7872] font-semibold">0 cihaz</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=3"></script>
+    <script src="js/layout.js?v=3"></script>
+    <script src="js/cihazlar.js?v=3"></script>
+</body>
+</html>

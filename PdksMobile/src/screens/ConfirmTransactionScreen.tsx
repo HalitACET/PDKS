@@ -12,9 +12,10 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
-import {getToken} from '../services/auth';
+import {getToken, removeToken} from '../services/auth';
 import {getOrCreateDeviceId} from '../services/device';
 import {getNextAction, logTransaction} from '../services/api';
+import {clearSession} from '../store/session';
 import {colors, typography, spacing, radius} from '../theme';
 import Card from '../components/Card';
 import SectionLabel from '../components/SectionLabel';
@@ -188,6 +189,10 @@ export default function ConfirmTransactionScreen({route, navigation}: Props) {
       if (error.isDeviceMismatch) {
         // Cihaz uyuşmazlığı ekranına yönlendir
         navigation.replace('DeviceMismatch');
+      } else if (error.isUnauthorized) {
+        await removeToken();
+        clearSession();
+        navigation.replace('Login');
       } else if (error.isLocationSuspicious) {
         // Anomali / Mock / Geofence hatası
         navigation.replace('FakeLocation');

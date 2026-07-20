@@ -55,6 +55,10 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    private Shift shift;
+
     /** Kayıt oluşturulma zamanı — otomatik set edilir */
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

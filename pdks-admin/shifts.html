@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vardiya Yönetimi - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h2 class="text-2xl font-bold text-dark">Vardiya Yönetimi</h2>
+                    <button class="bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm px-4 py-2.5 rounded-lg transition-colors shadow-sm" 
+                            id="open-modal-btn">
+                        + YENİ VARDİYA
+                    </button>
+                </div>
+
+                <!-- Shifts Grid -->
+                <div id="shifts-loading" class="text-center py-20">
+                    <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p class="text-[#7A7872] text-xs">Vardiyalar yükleniyor...</p>
+                </div>
+                <div id="shifts-empty" class="hidden text-center py-20">
+                    <p class="text-[#7A7872] text-sm">Tanımlanmış vardiya bulunamadı.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="shifts-grid">
+                    <!-- Dynamic cards loaded here -->
+                </div>
+
+                <!-- Footer Total Count -->
+                <div id="shifts-count-container" class="mt-6 text-xs text-[#7A7872] font-semibold">0 vardiya</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Shift Modal -->
+    <div id="create-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Yeni Vardiya Ekle</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-modal-btn">&times;</button>
+            </div>
+
+            <form id="create-shift-form" class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="shiftName">Vardiya Adı</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="shiftName" required placeholder="Örn: Gündüz">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="startTime">Başlangıç Saati</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="time" id="startTime" required>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="endTime">Bitiş Saati</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="time" id="endTime" required>
+                    </div>
+                </div>
+
+                <!-- Cross midnight warning -->
+                <div id="create-shift-warning" class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-3 hidden font-medium">
+                    ⚠️ Bu vardiya gece yarısını aşıyor, çıkışlar ertesi güne sayılacaktır.
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="breakMinutes">Mola Süresi (Dakika)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" id="breakMinutes" required min="0" value="60" placeholder="60">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="lateTolerance">Tolerans (Dakika)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" id="lateTolerance" required min="0" value="10" placeholder="10">
+                    </div>
+                </div>
+
+                <div id="modal-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-modal-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-shift-btn">
+                        <span>Kaydet</span>
+                        <span id="save-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Shift Modal -->
+    <div id="edit-shift-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Vardiya Düzenle</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-edit-modal-btn">&times;</button>
+            </div>
+
+            <form id="edit-shift-form" class="space-y-4">
+                <input type="hidden" id="editShiftId">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editShiftName">Vardiya Adı</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="editShiftName" required placeholder="Örn: Gündüz">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editStartTime">Başlangıç Saati</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="time" id="editStartTime" required>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editEndTime">Bitiş Saati</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="time" id="editEndTime" required>
+                    </div>
+                </div>
+
+                <!-- Cross midnight warning -->
+                <div id="edit-shift-warning" class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-3 hidden font-medium">
+                    ⚠️ Bu vardiya gece yarısını aşıyor, çıkışlar ertesi güne sayılacaktır.
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editBreakMinutes">Mola Süresi (Dakika)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" id="editBreakMinutes" required min="0" placeholder="60">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editLateTolerance">Tolerans (Dakika)</label>
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="number" id="editLateTolerance" required min="0" placeholder="10">
+                    </div>
+                </div>
+
+                <div id="edit-modal-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-edit-modal-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-edit-shift-btn">
+                        <span>Kaydet</span>
+                        <span id="edit-save-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=3"></script>
+    <script src="js/layout.js?v=3"></script>
+    <script src="js/vardiyalar.js?v=3"></script>
+</body>
+</html>

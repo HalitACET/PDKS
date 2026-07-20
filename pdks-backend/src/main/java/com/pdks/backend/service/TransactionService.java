@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
@@ -52,9 +53,21 @@ public class TransactionService {
                     .build();
         }
 
+        NextActionResponse.ShiftInfo shiftInfo = null;
+        if (user.getShift() != null) {
+            Shift shift = user.getShift();
+            DateTimeFormatter hmFormatter = DateTimeFormatter.ofPattern("HH:mm");
+            shiftInfo = NextActionResponse.ShiftInfo.builder()
+                    .name(shift.getName())
+                    .startTime(shift.getStartTime().format(hmFormatter))
+                    .endTime(shift.getEndTime().format(hmFormatter))
+                    .build();
+        }
+
         return NextActionResponse.builder()
                 .suggestedType(suggestedType)
                 .lastTransaction(lastInfo)
+                .shift(shiftInfo)
                 .build();
     }
 
@@ -108,6 +121,10 @@ public class TransactionService {
             // Location veritabanından bulunmalı
             location = locationRepository.findByFirmIdAndCode(user.getFirmId(), qrLocationCode)
                     .orElseThrow(InvalidQrException::new);
+            
+            if (!location.isActive()) {
+                throw new InvalidQrException();
+            }
         }
 
         // 5. Geofence ve Anomali Kontrolü (Fraud Detection)
@@ -223,6 +240,10 @@ public class TransactionService {
                     }
                     location = locationRepository.findByFirmIdAndCode(user.getFirmId(), qrLocationCode)
                             .orElseThrow(InvalidQrException::new);
+                    
+                    if (!location.isActive()) {
+                        throw new InvalidQrException();
+                    }
                 }
 
                 // 5. Fraud

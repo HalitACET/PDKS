@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş Yap - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-bg flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-[400px] bg-white border border-[#E0DDD5] rounded-xl p-8 shadow-sm">
+        <!-- Logo and Header -->
+        <div class="flex flex-col items-center mb-8">
+            <div class="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-dark font-extrabold text-2xl mb-3 shadow-sm select-none">
+                SS
+            </div>
+            <h1 class="text-dark font-bold text-2xl tracking-tight">PDKS Admin</h1>
+            <p class="text-[#7A7872] text-sm mt-1">Yönetici Paneli Girişi</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-5">
+            <div>
+                <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1.5" for="firmId">Firma Kodu</label>
+                <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                       type="text" id="firmId" required placeholder="Örn: ATLAS01">
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1.5" for="username">Kullanıcı Adı</label>
+                <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                       type="text" id="username" required placeholder="admin">
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1.5" for="password">Şifre</label>
+                <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                       type="password" id="password" required placeholder="••••••••">
+            </div>
+
+            <!-- Error message container -->
+            <div id="error-message" class="text-danger text-xs font-semibold hidden min-h-[16px] leading-relaxed"></div>
+
+            <button class="w-full bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm py-3 rounded-lg transition-colors shadow-sm mt-2 flex items-center justify-center gap-2" 
+                    type="submit" id="submit-btn">
+                <span>GİRİŞ YAP</span>
+                <span id="loading-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+            </button>
+        </form>
+    </div>
+
+    <!-- API script file -->
+    <script src="js/api.js?v=2"></script>
+    <script>
+        // Redirect if already authenticated
+        if (sessionStorage.getItem('pdks_token') && sessionStorage.getItem('pdks_role') === 'ADMIN') {
+            window.location.href = 'dashboard.html';
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const firmId = document.getElementById('firmId').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error-message');
+            const submitBtn = document.getElementById('submit-btn');
+            const spinner = document.getElementById('loading-spinner');
+
+            errorDiv.classList.add('hidden');
+            errorDiv.innerText = '';
+            
+            // Set loading state
+            submitBtn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            try {
+                await login(firmId, username, password);
+                // Redirect on success
+                window.location.href = 'dashboard.html';
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                // Remove loading state
+                submitBtn.disabled = false;
+                spinner.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

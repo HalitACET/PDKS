@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personel Yönetimi - PDKS Admin</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#F2F0EB',
+                        dark: '#26262A',
+                        primary: '#F5B301',
+                        success: '#2E9E5B',
+                        danger: '#D9483B',
+                        surface: '#FFFFFF'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="admin-layout">
+        <!-- Sidebar placeholder -->
+        <div id="sidebar-container"></div>
+
+        <main class="main-content">
+            <!-- Topbar placeholder -->
+            <header class="topbar" id="topbar-container"></header>
+
+            <!-- Main Body Content -->
+            <div class="content-body">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h2 class="text-2xl font-bold text-dark">Personel Yönetimi</h2>
+                    <button class="bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm px-4 py-2.5 rounded-lg transition-colors shadow-sm" 
+                            id="open-modal-btn">
+                        + YENİ PERSONEL
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-4 shadow-sm mb-6 flex items-center">
+                    <div class="w-full max-w-sm">
+                        <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                               type="text" id="user-search" placeholder="Personel adıyla veya kullanıcı adıyla ara...">
+                    </div>
+                </div>
+
+                <!-- Table Area -->
+                <div class="bg-white border border-[#E0DDD5] rounded-xl p-6 shadow-sm">
+                    <div class="admin-table-container">
+                        <table class="admin-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>Ad Soyad</th>
+                                    <th>Kullanıcı Adı</th>
+                                    <th>Rol</th>
+                                    <th>Vardiya</th>
+                                    <th>Cihaz</th>
+                                    <th>Durum</th>
+                                    <th class="w-24 text-center">İşlem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody">
+                                <!-- Dynamic rows loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Loading / Empty states -->
+                    <div id="users-loading" class="text-center py-10">
+                        <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p class="text-[#7A7872] text-xs">Personel listesi yükleniyor...</p>
+                    </div>
+                    <div id="users-empty" class="hidden text-center py-10">
+                        <p class="text-[#7A7872] text-sm">Hiçbir personel bulunamadı.</p>
+                    </div>
+                </div>
+                <!-- Total Count Footer -->
+                <div id="users-count" class="mt-4 text-xs text-[#7A7872] font-semibold">0 personel</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Yeni Personel Tanımla</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-modal-btn">&times;</button>
+            </div>
+
+            <form id="create-user-form" class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="fullName">Ad Soyad</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="fullName" required placeholder="Ahmet Yılmaz">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="username">Kullanıcı Adı</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="username" required placeholder="ahmetyilmaz">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="initialPassword">İlk Şifre</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="initialPassword" required placeholder="En az 8 karakter, 1 rakam">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="role">Rol</label>
+                    <select class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                            id="role">
+                        <option value="EMPLOYEE">Çalışan (EMPLOYEE)</option>
+                        <option value="ADMIN">Yönetici (ADMIN)</option>
+                    </select>
+                </div>
+
+                <div id="modal-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-modal-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-user-btn">
+                        <span>Kaydet</span>
+                        <span id="save-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Personel Düzenle</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-edit-user-btn">&times;</button>
+            </div>
+
+            <form id="edit-user-form" class="space-y-4">
+                <input type="hidden" id="editUserId">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="editFullName">Ad Soyad</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="editFullName" required placeholder="Ahmet Yılmaz">
+                </div>
+
+                <div id="edit-user-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-edit-user-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-edit-user-btn">
+                        <span>Kaydet</span>
+                        <span id="edit-user-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div id="reset-password-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Şifre Sıfırla</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-reset-pwd-btn">&times;</button>
+            </div>
+
+            <form id="reset-password-form" class="space-y-4">
+                <input type="hidden" id="resetPasswordUserId">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="newPassword">Yeni Şifre</label>
+                    <input class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                           type="text" id="newPassword" required placeholder="En az 8 karakter, 1 rakam">
+                </div>
+
+                <div id="reset-pwd-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-reset-pwd-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-reset-pwd-btn">
+                        <span>Şifreyi Güncelle</span>
+                        <span id="reset-pwd-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assign Shift Modal -->
+    <div id="assign-shift-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/45 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-white border border-[#E0DDD5] rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between border-b border-[#E0DDD5] pb-4 mb-4">
+                <h3 class="font-bold text-lg text-dark">Vardiya Ata</h3>
+                <button class="text-[#7A7872] hover:text-dark text-xl font-bold" id="close-assign-shift-btn">&times;</button>
+            </div>
+
+            <form id="assign-shift-form" class="space-y-4">
+                <input type="hidden" id="assignShiftUserId">
+                <div>
+                    <label class="block text-[11px] font-bold text-[#7A7872] uppercase tracking-wider mb-1" for="shiftSelect">Vardiya Seçin</label>
+                    <select class="w-full bg-bg border border-[#E0DDD5] rounded-lg px-4 py-2.5 text-dark font-medium text-sm focus:outline-none focus:border-primary transition-colors" 
+                            id="shiftSelect">
+                        <option value="">— Vardiya Atamasını Kaldır —</option>
+                        <!-- Dynamic active shifts populated here -->
+                    </select>
+                </div>
+
+                <div id="assign-shift-error" class="text-danger text-xs font-semibold hidden"></div>
+
+                <div class="flex gap-3 justify-end pt-2">
+                    <button class="px-4 py-2 border border-[#E0DDD5] text-dark hover:bg-bg font-semibold text-sm rounded-lg transition-colors" 
+                            type="button" id="cancel-assign-shift-btn">Vazgeç</button>
+                    <button class="px-5 py-2 bg-primary hover:bg-[#E5A700] text-dark font-bold text-sm rounded-lg transition-colors flex items-center gap-2" 
+                            type="submit" id="save-assign-shift-btn">
+                        <span>Kaydet</span>
+                        <span id="assign-shift-spinner" class="hidden w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Scripts -->
+    <script src="js/api.js?v=3"></script>
+    <script src="js/layout.js?v=3"></script>
+    <script src="js/personel.js?v=3"></script>
+</body>
+</html>

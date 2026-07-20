@@ -4,6 +4,7 @@ import com.pdks.backend.dto.ChangePasswordRequest;
 import com.pdks.backend.dto.LoginRequest;
 import com.pdks.backend.dto.LoginResponse;
 import com.pdks.backend.entity.Device;
+import com.pdks.backend.entity.Role;
 import com.pdks.backend.entity.User;
 import com.pdks.backend.exception.DeviceMismatchException;
 import com.pdks.backend.repository.DeviceRepository;
@@ -56,21 +57,26 @@ public class AuthService {
             throw unauthorized();
         }
 
-        // ─── Cihaz Kontrolü (şifre doğrulandıktan sonra) ───────────────────
-        Optional<Device> registeredDevice = deviceRepository.findByUser(user);
-        boolean deviceRegistered;
+        // ─── Rol ve Cihaz Kontrolleri ───────────────────
+        boolean deviceRegistered = false;
 
-        if (registeredDevice.isEmpty()) {
-            // Durum 1: Henüz kayıtlı cihaz yok — mobil /device/register çağıracak
-            deviceRegistered = false;
+        if (user.getRole() == Role.ADMIN || "ADMIN-PANEL".equals(request.getDeviceId())) {
+            // Admin veya admin paneli (ADMIN-PANEL) üzerinden giriş yapıldığında cihaz doğrulaması yapılmaz
+            deviceRegistered = (user.getRole() == Role.ADMIN);
         } else {
-            Device device = registeredDevice.get();
-            if (device.getDeviceId().equals(request.getDeviceId())) {
-                // Durum 2: Cihaz eşleşiyor — normal login
-                deviceRegistered = true;
+            Optional<Device> registeredDevice = deviceRepository.findByUser(user);
+            if (registeredDevice.isEmpty()) {
+                // Durum 1: Henüz kayıtlı cihaz yok — mobil /device/register çağıracak
+                deviceRegistered = false;
             } else {
-                // Durum 3: Farklı cihaz — DEVICE_MISMATCH exception fırlat
-                throw new DeviceMismatchException();
+                Device device = registeredDevice.get();
+                if (device.getDeviceId().equals(request.getDeviceId())) {
+                    // Durum 2: Cihaz eşleşiyor — normal login
+                    deviceRegistered = true;
+                } else {
+                    // Durum 3: Farklı cihaz — DEVICE_MISMATCH exception fırlat
+                    throw new DeviceMismatchException();
+                }
             }
         }
 
