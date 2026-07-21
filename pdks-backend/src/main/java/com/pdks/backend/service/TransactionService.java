@@ -18,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import com.pdks.backend.util.GeoUtils;
 import java.util.Optional;
 
 @Service
@@ -123,6 +125,21 @@ public class TransactionService {
             
             if (!location.isActive()) {
                 throw new InvalidQrException();
+            }
+        } else if (request.getMethod() == TransactionMethod.GPS) {
+            List<Location> firmLocations = locationRepository.findByFirmId(user.getFirmId());
+            for (Location loc : firmLocations) {
+                if (loc.isActive() && loc.getLatitude() != null && loc.getLongitude() != null) {
+                    double dist = GeoUtils.distanceMeters(
+                            request.getLatitude(), request.getLongitude(),
+                            loc.getLatitude(), loc.getLongitude()
+                    );
+                    int rad = loc.getRadiusMeters() != null ? loc.getRadiusMeters() : 100;
+                    if (dist <= rad) {
+                        location = loc;
+                        break;
+                    }
+                }
             }
         }
 
@@ -242,6 +259,21 @@ public class TransactionService {
                     
                     if (!location.isActive()) {
                         throw new InvalidQrException();
+                    }
+                } else if (request.getMethod() == TransactionMethod.GPS) {
+                    List<Location> firmLocations = locationRepository.findByFirmId(user.getFirmId());
+                    for (Location loc : firmLocations) {
+                        if (loc.isActive() && loc.getLatitude() != null && loc.getLongitude() != null) {
+                            double dist = GeoUtils.distanceMeters(
+                                    request.getLatitude(), request.getLongitude(),
+                                    loc.getLatitude(), loc.getLongitude()
+                            );
+                            int rad = loc.getRadiusMeters() != null ? loc.getRadiusMeters() : 100;
+                            if (dist <= rad) {
+                                location = loc;
+                                break;
+                            }
+                        }
                     }
                 }
 

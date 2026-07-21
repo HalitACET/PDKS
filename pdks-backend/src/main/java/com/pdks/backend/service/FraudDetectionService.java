@@ -39,9 +39,9 @@ public class FraudDetectionService {
                 throw new LocationSuspiciousException();
             }
 
-            // 2. Geofence Kontrolü (sadece method = QR iken)
-            if (request.getMethod() == TransactionMethod.QR && resolvedLocation != null) {
-                if (resolvedLocation.getLatitude() != null && resolvedLocation.getLongitude() != null) {
+            // 2. Geofence Kontrolü
+            if (request.getMethod() == TransactionMethod.QR) {
+                if (resolvedLocation != null && resolvedLocation.getLatitude() != null && resolvedLocation.getLongitude() != null) {
                     double distance = GeoUtils.distanceMeters(
                             request.getLatitude(), request.getLongitude(),
                             resolvedLocation.getLatitude(), resolvedLocation.getLongitude()
@@ -52,6 +52,13 @@ public class FraudDetectionService {
                         logSuspiciousAttempt(user, request, SuspiciousReason.GEOFENCE_VIOLATION);
                         throw new LocationSuspiciousException();
                     }
+                } else {
+                    throw new LocationSuspiciousException();
+                }
+            } else if (request.getMethod() == TransactionMethod.GPS) {
+                if (resolvedLocation == null) {
+                    logSuspiciousAttempt(user, request, SuspiciousReason.GEOFENCE_VIOLATION);
+                    throw new LocationSuspiciousException();
                 }
             }
 
